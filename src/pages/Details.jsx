@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Home, Book, Clock, Star, Heart, Share2, Bookmark, 
-  ChevronRight, AlertCircle, RefreshCw, Calendar, User, Tag
+  ChevronLeft, Play, Info, List, User, Tag
 } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 

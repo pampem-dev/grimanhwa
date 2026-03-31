@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Book, Star, Clock, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { Book, Star, Clock, ChevronRight, RefreshCw, AlertCircle, TrendingUp, Crown } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import MangaCard from '../components/MangaCard';
 import HeroCarousel from '../components/HeroCarousel';
