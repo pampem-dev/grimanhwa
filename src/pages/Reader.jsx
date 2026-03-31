@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, ArrowUp, X } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -54,30 +55,26 @@ const Reader = ({ chapterId, onExit }) => {
   const CHAPTER_CACHE_TTL_MS = 60 * 60 * 1000;
   const getChapterCacheKey = (id) => `readerCache_chapter_${id}`;
 
-const readChapterCache = useCallback((id) => {
-  if (!id) return null;
-  try {
-    const raw = localStorage.getItem(getChapterCacheKey(id));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (Date.now() - parsed.timestamp > CHAPTER_CACHE_TTL_MS) return null;
-    return { pages: parsed.pages, chapterNum: parsed.chapterNum };
-  } catch { return null; }
-}, [CHAPTER_CACHE_TTL_MS]); // Empty array means this function is created only once
+  const readChapterCache = (id) => {
+    if (!id) return null;
+    try {
+      const raw = localStorage.getItem(getChapterCacheKey(id));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Date.now() - parsed.timestamp > CHAPTER_CACHE_TTL_MS) return null;
+      return { pages: parsed.pages, chapterNum: parsed.chapterNum };
+    } catch { return null; }
+  };
 
-const writeChapterCache = useCallback((id, payload) => {
-  if (!id || !payload?.pages) return;
-  try {
-    localStorage.setItem(
-      getChapterCacheKey(id),
-      JSON.stringify({ 
-        pages: payload.pages, 
-        chapterNum: payload.chapterNum, 
-        timestamp: Date.now() 
-      })
-    );
-  } catch { /* Quota exceeded */ }
-}, []); // Empty array means this function is created only once
+  const writeChapterCache = (id, payload) => {
+    if (!id || !payload?.pages) return;
+    try {
+      localStorage.setItem(
+        getChapterCacheKey(id),
+        JSON.stringify({ pages: payload.pages, chapterNum: payload.chapterNum, timestamp: Date.now() })
+      );
+    } catch { /* Quota exceeded */ }
+  };
 
   const getChapterNumber = (id) => {
     const match = id.match(/chapter\/(\d+)/i);

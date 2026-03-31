@@ -1,13 +1,116 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Home, Star, History } from 'lucide-react';
 import { Book, Settings} from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 import Footer from './Footer';
 
+const SearchResultSkeleton = () => (
+  <div className="flex items-center space-x-3 p-3">
+    <div className="w-12 h-16 rounded-lg bg-white/5 animate-pulse shrink-0" />
+    <div className="flex-1 flex flex-col gap-2">
+      <div className="h-3 bg-white/5 rounded animate-pulse w-3/4" />
+      <div className="h-3 bg-white/5 rounded animate-pulse w-1/2" />
+    </div>
+  </div>
+);
+
 const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const searchTimeoutRef = useRef(null);
 
-  useEffect(() => {
+  const performSearch = useCallback(async (query) => {
+    if (!query.trim()) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    setShowSearchResults(true);
+
+    try {
+      // Always use backend API from environment
+      const baseUrl = API_ENDPOINTS.SEARCH('');
+      
+      const searchPromises = [
+        fetch(API_ENDPOINTS.SEARCH(query)),
+        fetch(API_ENDPOINTS.SEARCH(query.charAt(0))),
+        fetch(API_ENDPOINTS.SEARCH('a'))
+      ];
+
+      const results = await Promise.allSettled(searchPromises);
+      const allManga = [];
+      
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.ok) {
+          try {
+            const jsonData = await result.value.json();
+            const mangaList = getMangaList(jsonData);
+            allManga.push(...mangaList);
+          } catch (jsonError) {
+            console.warn('Failed to parse JSON response:', jsonError);
+          }
+        }
+      }
+
+      const filteredManga = allManga.filter(item => {
+        const cleanedItemTitle = cleanTitle(item.title);
+        const searchLower = query.toLowerCase();
+        return cleanedItemTitle.toLowerCase().includes(searchLower);
+      });
+
+      const seenTitles = new Set();
+      const uniqueManga = filteredManga.filter(item => {
+        const cleanedItemTitle = cleanTitle(item.title);
+        if (seenTitles.has(cleanedItemTitle)) {
+          return false;
+        }
+        seenTitles.add(cleanedItemTitle);
+        return true;
+      });
+      
+      console.log('Search results:', uniqueManga.slice(0, 5).map(m => ({
+        title: m.title,
+        cover: m.cover_url || m.cover,
+        hasCover: !!(m.cover_url || m.cover)
+      })));
+      
+      setSearchResults(uniqueManga.slice(0, 5));
+    } catch (err) {
+      console.error("Search error:", err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  const getMangaList = (data) => {
+    if (Array.isArray(data)) return data;
+    return data.manga || data.trending || data.results || [];
+  };
+
+  const cleanTitle = (title) => {
+    if (!title) return title;
+    return title.replace(/^\d+\.\d+\s*|Chapter\d+(\.\d+)?/gi, '').trim();
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(value);
+    }, 500); 
+  };
+useEffect(() => {
     let ticking = false;
 
     const updateHeader = () => {

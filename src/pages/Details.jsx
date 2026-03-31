@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Book, Clock, Star, 
   ChevronLeft, Play, Info, List
@@ -18,7 +18,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
   const getDetailsCacheKey = (mangaId) => `detailsCache_${mangaId}`;
 
-  const readDetailsCache = useCallback((mangaId) => {
+  const readDetailsCache = (mangaId) => {
     if (!mangaId) return null;
     try {
       const raw = localStorage.getItem(getDetailsCacheKey(mangaId));
@@ -35,9 +35,9 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     } catch {
       return null;
     }
-  }, [DETAILS_CACHE_TTL_MS]);
+  };
 
-  const writeDetailsCache = useCallback((mangaId, payload) => {
+  const writeDetailsCache = (mangaId, payload) => {
     if (!mangaId || !payload?.chapters) return;
     try {
       localStorage.setItem(
@@ -52,7 +52,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     } catch {
       // ignore quota / serialization issues
     }
-  }, []);
+  };
 
   // Load read chapters from localStorage on mount
   useEffect(() => {
@@ -332,11 +332,42 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     return title.replace(/^\d+\.\d+/, '');
   };
 
+  const extractChapterNumber = (ch) => {
+    let num = ch.chapter_num;
+    if (!num) {
+      const match = ch.title?.match(/chapter\s*(\d+(\.\d+)?)/i);
+      num = match?.[1];
+    }
+    if (!num) return 0;
+    num = String(num);
+    if (num.length > 3) num = num.slice(0, 3);
+    return parseFloat(num);
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const fetchChapters = useCallback(async (forceRefresh = false) => {
+  useEffect(() => {
+    if (!manga?.id) return;
+
+    // Fast path: hydrate from cache for instant UI
+    const cached = readDetailsCache(manga.id);
+    if (cached) {
+      setMangaDetails((prev) => ({
+        ...prev,
+        description: cached.description || prev.description,
+        status: cached.status || prev.status,
+      }));
+      setChapters(cached.chapters);
+      setLoading(false);
+      return;
+    }
+
+    fetchChapters();
+  }, [manga]);
+
+  const fetchChapters = async (forceRefresh = false) => {
     setLoading(true);
     try {
       if (!forceRefresh) {
@@ -368,43 +399,21 @@ const Details = ({ manga, onBack, onChapterRead }) => {
           seen.add(key);
           return true;
         });
-        const sortedChapters = uniqueChapters.sort((a, b) => {
-          const numA = parseInt(a.id?.match(/\d+/)?.[0] || a.url?.match(/\d+/)?.[0] || '0');
-          const numB = parseInt(b.id?.match(/\d+/)?.[0] || b.url?.match(/\d+/)?.[0] || '0');
-          return numB - numA;
-        });
-        setChapters(sortedChapters);
+        uniqueChapters.sort((a, b) => extractChapterNumber(b) - extractChapterNumber(a));
+        setChapters(uniqueChapters);
+
         writeDetailsCache(manga.id, {
           description: chaptersData.description,
           status: chaptersData.status,
-          chapters: sortedChapters,
+          chapters: uniqueChapters,
         });
       }
-    } catch (error) {
-      console.error('Error fetching chapters:', error);
+    } catch (err) {
+      console.error("Chapters fetch error:", err);
     } finally {
       setLoading(false);
     }
-  }, [manga.id, readDetailsCache, writeDetailsCache]);
-
-  useEffect(() => {
-    if (!manga?.id) return;
-
-    // Fast path: hydrate from cache for instant UI
-    const cached = readDetailsCache(manga.id);
-    if (cached) {
-      setMangaDetails((prev) => ({
-        ...prev,
-        description: cached.description || prev.description,
-        status: cached.status || prev.status,
-      }));
-      setChapters(cached.chapters);
-      setLoading(false);
-      return;
-    }
-
-    fetchChapters();
-  }, [fetchChapters, readDetailsCache, manga]);
+  };
 
   if (loading) {
     return (

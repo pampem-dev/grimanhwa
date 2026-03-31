@@ -49,6 +49,18 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
   };
 
+  // Simple debounce function
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
   const cleanTitle = (title) => {
     if (!title) return title;
     return title.replace(/^\d+\.\d+/, '');
@@ -61,6 +73,9 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
 
   // Pagination logic
   const totalPages = Math.ceil(allManga.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = allManga.slice(indexOfFirstItem, indexOfLastItem);
 
   // Filter and sort manga (optimized with useMemo)
   const filteredAndSortedManga = useMemo(() => {
@@ -115,41 +130,16 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     setCurrentPage(1);
   }, [searchQuery, sortBy, sortOrder]);
 
-  // Optimized debounced search with ref to prevent input lag
-  const searchTimeoutRef = useRef(null);
-  const [inputValue, setInputValue] = useState(searchQuery);
-  
-  const handleSearchChange = (e) => {
-    const value = e.target.value;
-    setInputValue(value); // Update input immediately for responsive typing
-    
-    // Clear previous timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-    
-    // Set new timeout
-    searchTimeoutRef.current = setTimeout(() => {
+  // Debounced search to reduce re-renders
+  const debouncedSearch = useCallback(
+    debounce((value) => {
       setSearchQuery(value);
-    }, 150); // Reduced from 300ms for more responsive feel
-  };
-
-  // Sync input value with search query when external changes occur
-  useEffect(() => {
-    setInputValue(searchQuery);
-  }, [searchQuery]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
+    }, 300),
+    []
+  );
 
   // Lightweight function to get basic manga info (total chapters, status) with caching
-  const fetchBasicMangaInfo = useCallback(async (mangaId) => {
+  const fetchBasicMangaInfo = async (mangaId) => {
     // Check memory cache first
     if (infoCache.current.has(mangaId)) {
       return infoCache.current.get(mangaId);
@@ -175,7 +165,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         
         // Cache in both memory and persistent storage
         infoCache.current.set(mangaId, info);
-        setPersistentCache(`info_${mangaId}`, info);
+        setPersistentCache(`info_${mangaId}`, { data: info });
         
         return info;
       }
@@ -186,7 +176,47 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       totalChapters: 0,
       status: 'unknown'
     };
-  }, []);
+  };
+
+  // Fetch basic info for current page items (batched for performance)
+  const fetchBasicInfoForPage = useCallback(async (pageItems) => {
+    const itemsToFetch = pageItems.filter(manga => !mangaDetails[manga.id]);
+    
+    if (itemsToFetch.length === 0) return;
+    
+    console.log(`Fetching basic info for ${itemsToFetch.length} manga on page ${currentPage}`);
+    
+    // Fetch in larger batches for better performance
+    const batchSize = 6; // Increased from 3 to 6 for fewer API calls
+    const batches = [];
+    
+    for (let i = 0; i < itemsToFetch.length; i += batchSize) {
+      batches.push(itemsToFetch.slice(i, i + batchSize));
+    }
+    
+    for (const batch of batches) {
+      const infoPromises = batch.map(async (manga) => {
+        const info = await fetchBasicMangaInfo(manga.id);
+        return { mangaId: manga.id, info };
+      });
+      
+      try {
+        const infoResults = await Promise.all(infoPromises);
+        const detailsMap = { ...mangaDetails };
+        infoResults.forEach(({ mangaId, info }) => {
+          detailsMap[mangaId] = info;
+        });
+        setMangaDetails(detailsMap);
+        
+        // Reduced delay between batches for faster loading
+        if (batches.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms to 50ms
+        }
+      } catch (error) {
+        console.error('Error fetching info batch:', error);
+      }
+    }
+  }, [mangaDetails, currentPage]);
 
   // Fetch all manga with persistent caching
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
@@ -270,7 +300,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [mangaDetails]);
+  }, []);
 
   // Refresh function
   const handleRefresh = useCallback(() => {
@@ -319,7 +349,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         }, 2000); // Start prefetching after 2 seconds
       }
     }
-  }, [currentPage, totalPages, loading, allManga, mangaDetails, fetchBasicMangaInfo, itemsPerPage]);
+  }, [currentPage, totalPages, loading, allManga, mangaDetails]);
 
   // Pagination controls
   const handlePageChange = (pageNumber) => {
@@ -496,8 +526,8 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
               <input
                 type="text"
                 placeholder="Search manga..."
-                value={inputValue}
-                onChange={handleSearchChange}
+                value={searchQuery}
+                onChange={(e) => debouncedSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/20 transition-colors"
               />
             </div>

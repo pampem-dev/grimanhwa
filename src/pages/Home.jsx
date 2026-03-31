@@ -72,7 +72,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   };
 
   // Optimized chapter fetching with persistent caching
-  const fetchLatestChapter = useCallback(async (mangaId) => {
+  const fetchLatestChapter = async (mangaId) => {
     // Check memory cache first
     if (chapterCache.current.has(mangaId)) {
       return chapterCache.current.get(mangaId);
@@ -109,7 +109,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       console.error(`Failed to fetch latest chapter for ${mangaId}:`, err);
     }
     return null;
-  }, []);
+  };
 
   const extractChapterNumber = (chapter) => {
     if (!chapter) return '1';
@@ -141,8 +141,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   // Fetch chapters for current page items
   const fetchChaptersForPage = useCallback(async (pageItems) => {
-    // We check the "current" state inside the function, 
-    // but we don't need it in the dependency array anymore!
     const itemsToFetch = pageItems.filter(manga => !latestChapters[manga.id]);
     
     if (itemsToFetch.length === 0) return; 
@@ -168,45 +166,9 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     } catch (error) {
       console.error('Error fetching chapters:', error);
     }
-  }, [fetchLatestChapter, latestChapters]);
+  }, [fetchLatestChapter]); // Only depend on fetchLatestChapter
 
-// Batch chapter fetching for better performance
-const fetchChaptersBatch = useCallback(async (mangaList) => {
-  const batchSize = 5;
-  const batches = [];
-  
-  for (let i = 0; i < mangaList.length; i += batchSize) {
-    batches.push(mangaList.slice(i, i + batchSize));
-  }
-  
-  for (const batch of batches) {
-    const chapterPromises = batch.map(async (manga) => {
-      const chapterInfo = await fetchLatestChapter(manga.id);
-      return { mangaId: manga.id, chapterInfo };
-    });
-    
-    try {
-      const chapterResults = await Promise.all(chapterPromises);
-      
-      // Use functional update here to remove 'latestChapters' dependency
-      setLatestChapters(prevMap => {
-        const newMap = { ...prevMap };
-        chapterResults.forEach(({ mangaId, chapterInfo }) => {
-          if (chapterInfo) {
-            newMap[mangaId] = chapterInfo;
-          }
-        });
-        return newMap;
-      });
-    } catch (error) {
-      console.error('Error fetching chapter batch:', error);
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-}, [fetchLatestChapter]);
-
-  // Refresh functioned page change to prevent rapid requests
+  // Debounced page change to prevent rapid requests
   const debouncedPageChange = useCallback((pageNumber) => {
     setCurrentPage(pageNumber);
     // Scroll to Latest Updates section with offset for mobile header
@@ -235,12 +197,55 @@ const fetchChaptersBatch = useCallback(async (mangaList) => {
     }
   };
 
-  // Fetch chapters when page changes (but only for new items)
+  // Fetch chapters when page changes (but only for new items) - DISABLED TO STOP LOOP
   useEffect(() => {
     if (currentItems.length > 0 && !loadingRecent) {
       fetchChaptersForPage(currentItems);
     }
-  }, [currentPage, currentItems, currentItems.length, fetchChaptersForPage, loadingRecent]);
+  }, [currentPage, currentItems.length, loadingRecent]); // Removed fetchChaptersForPage and currentItems from deps
+
+  // Fetch chapters in batches for better performance
+  const fetchChaptersBatch = useCallback(async (mangaList) => {
+    const batchSize = 5;
+    const batches = [];
+    
+    for (let i = 0; i < mangaList.length; i += batchSize) {
+      batches.push(mangaList.slice(i, i + batchSize));
+    }
+    
+    for (const batch of batches) {
+      const chapterPromises = batch.map(async (manga) => {
+        const chapterInfo = await fetchLatestChapter(manga.id);
+        return { mangaId: manga.id, chapterInfo };
+      });
+      
+      try {
+        const chapterResults = await Promise.all(chapterPromises);
+        
+        // Use functional update with stable reference to prevent infinite loops
+        setLatestChapters(prevMap => {
+          // Check if any of these chapters are already loaded to prevent duplicates
+          const hasNewChapters = chapterResults.some(({ mangaId }) => !prevMap[mangaId]);
+          if (!hasNewChapters) return prevMap;
+          
+          const newMap = { ...prevMap };
+          chapterResults.forEach(({ mangaId, chapterInfo }) => {
+            if (chapterInfo) {
+              newMap[mangaId] = chapterInfo;
+            }
+          });
+          return newMap;
+        });
+        
+        // Small delay between batches to prevent overwhelming API
+        if (batches.length > 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      } catch (error) {
+        console.error('Error fetching chapter batch:', error);
+      }
+    }
+  }, [fetchLatestChapter]);
 
   // Optimized fetchAllManga with persistent caching and error handling
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
@@ -267,18 +272,17 @@ const fetchChaptersBatch = useCallback(async (mangaList) => {
         setLoadingPopular(false);
         
         // Load cached chapters
-        setLatestChapters(prevChapters => {
-          const cachedChapters = { ...prevChapters };
-          // We use Object.keys(prevChapters) instead of the external latestChapters
-          Object.keys(prevChapters).forEach(mangaId => {
-            const chapterCache = getPersistentCache(`chapter_${mangaId}`);
-            if (chapterCache) {
-              cachedChapters[mangaId] = chapterCache.data;
-            }
-          });
-          return cachedChapters;
+        const cachedChapters = {};
+        Object.keys(latestChapters).forEach(mangaId => {
+          const chapterCache = getPersistentCache(`chapter_${mangaId}`);
+          if (chapterCache) {
+            cachedChapters[mangaId] = chapterCache.data;
+          }
         });
-                
+        if (Object.keys(cachedChapters).length > 0) {
+          setLatestChapters(cachedChapters);
+        }
+        
         return;
       }
     }
@@ -340,10 +344,6 @@ const fetchChaptersBatch = useCallback(async (mangaList) => {
         apiCache.current.set(cacheKey, cacheData);
         setPersistentCache(cacheKey, cacheData);
         
-        // Optimized chapter fetching - only for visible items first
-        const visibleManga = recent.slice(0, 10); // First page items
-        fetchChaptersBatch(visibleManga);
-        
         setLoadingTrending(false);
         setLoadingRecent(false);
         setLoadingPopular(false);
@@ -360,7 +360,7 @@ const fetchChaptersBatch = useCallback(async (mangaList) => {
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchChaptersBatch]);
+  }, []);
 
   // Refresh function
   const handleRefresh = useCallback(() => {
