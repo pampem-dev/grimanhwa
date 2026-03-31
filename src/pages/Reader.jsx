@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, ArrowUp, X } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -127,7 +126,7 @@ const Reader = ({ chapterId, onExit }) => {
     } finally {
       if (!isPreload) setIsLoadingNext(false);
     }
-  }, [loadedIds, failedIds]);
+  }, [loadedIds, failedIds, readChapterCache, writeChapterCache]);
 
   useEffect(() => { 
     if (chapterId && chapters.length === 0) fetchChapter(chapterId); 
