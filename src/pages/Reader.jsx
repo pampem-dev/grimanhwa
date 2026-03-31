@@ -1,5 +1,7 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { X, Loader2, ArrowUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Home, AlertCircle, RefreshCw, Book, Clock, Star } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 const LazyImage = ({ src, alt, className, style }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -97,7 +99,7 @@ const Reader = ({ chapterId, onExit }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased for Selenium stability
 
-      const response = await fetch(`http://10.7.6.206:8000/api/kaynscan/chapter/${encodeURIComponent(id)}/`, {
+      const response = await fetch(API_ENDPOINTS.CHAPTER(id), {
         signal: controller.signal,
       });
 

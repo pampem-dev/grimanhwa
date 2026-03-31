@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Star, Book, Grid, Search, ArrowUpDown } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { Book, Grid, List, Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 import MangaCard from '../components/MangaCard';
 
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
@@ -153,7 +155,7 @@ const debounce = (func, wait) => {
     }
 
     try {
-      const response = await fetch(`http://10.7.6.206:8000/api/kaynscan/manga/?id=${encodeURIComponent(mangaId)}`);
+      const response = await fetch(API_ENDPOINTS.MANGA(mangaId));
       if (response.ok) {
         const data = await response.json();
         const chapters = data.chapters || [];
@@ -255,7 +257,7 @@ const debounce = (func, wait) => {
       if (forceRefresh) setIsRefreshing(true);
       
       // Use the new browse-all endpoint to get all manga from all pages
-      const apiUrl = 'http://10.7.6.206:8000/api/kaynscan/browse-all/';
+      const apiUrl = API_ENDPOINTS.BROWSE_ALL;
       console.log('Collections: Fetching all manga from browse-all endpoint:', apiUrl);
       
       // Add timeout to prevent hanging requests

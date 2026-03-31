@@ -1,5 +1,7 @@
 import React from 'react';
-import { Star } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Book, Star, Heart, Plus } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 const SkeletonCard = () => (
   <div className="w-full space-y-3">
@@ -42,7 +44,7 @@ const MangaCard = ({ title, coverUrl, onClick, isLoading = false }) => {
     
     // If it's a relative path, make it absolute (assuming same domain)
     if (coverUrl.startsWith('/')) {
-      return `http://10.7.6.206:8000${coverUrl}`;
+      return API_ENDPOINTS.COVER_URL(coverUrl);
     }
     
     return coverUrl;

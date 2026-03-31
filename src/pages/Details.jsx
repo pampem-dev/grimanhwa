@@ -1,5 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Play, Book, Clock, Star, Info, List } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { 
+  ArrowLeft, Home, Book, Clock, Star, Heart, Share2, Bookmark, 
+  ChevronRight, AlertCircle, RefreshCw, Calendar, User, Tag
+} from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 const Details = ({ manga, onBack, onChapterRead }) => {
   const [chapters, setChapters] = useState([]);
@@ -380,7 +385,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
         }
       }
 
-      const response = await fetch(`http://10.7.6.206:8000/api/kaynscan/manga/?id=${encodeURIComponent(manga.id)}`);
+      const response = await fetch(API_ENDPOINTS.MANGA(manga.id));
       if (response.ok) {
         let chaptersData = await response.json();
         setMangaDetails(prev => ({

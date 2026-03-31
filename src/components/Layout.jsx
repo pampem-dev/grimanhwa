@@ -1,5 +1,7 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Home, Book, Search, Settings, History, Star } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, Book, Heart, User, Settings, Loader2, X } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 import Footer from './Footer';
 
 const SearchResultSkeleton = () => (
@@ -31,13 +33,13 @@ const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
     setShowSearchResults(true);
 
     try {
-      // Always use backend API at port 8000
-      const baseUrl = 'http://10.7.6.206:8000/api/kaynscan/search/?q=';
+      // Always use backend API from environment
+      const baseUrl = API_ENDPOINTS.SEARCH('');
       
       const searchPromises = [
-        fetch(`${baseUrl}${encodeURIComponent(query)}`),
-        fetch(`${baseUrl}${query.charAt(0)}`),
-        fetch(`${baseUrl}a`)
+        fetch(API_ENDPOINTS.SEARCH(query)),
+        fetch(API_ENDPOINTS.SEARCH(query.charAt(0))),
+        fetch(API_ENDPOINTS.SEARCH('a'))
       ];
 
       const results = await Promise.allSettled(searchPromises);

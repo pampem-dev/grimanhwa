@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Star, TrendingUp, Clock, Play, Crown, Flame } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Book, Star, Clock, ChevronRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 import MangaCard from '../components/MangaCard';
 import HeroCarousel from '../components/HeroCarousel';
 
@@ -85,7 +87,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     }
 
     try {
-      const response = await fetch(`http://10.7.6.206:8000/api/kaynscan/manga/?id=${encodeURIComponent(mangaId)}`);
+      const response = await fetch(API_ENDPOINTS.MANGA(mangaId));
       if (response.ok) {
         const data = await response.json();
         const chapters = data.chapters || [];
@@ -244,8 +246,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       setFetchError(null);
       if (forceRefresh) setIsRefreshing(true);
       
-      // Always use backend API at port 8000
-      const apiUrl = 'http://10.7.6.206:8000/api/kaynscan/search/?q=a';
+      // Always use backend API from environment
+      const apiUrl = API_ENDPOINTS.SEARCH('a');
       console.log('Using API URL:', apiUrl);
       
       // Add timeout to prevent hanging requests
