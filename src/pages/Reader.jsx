@@ -126,7 +126,7 @@ const Reader = ({ chapterId, onExit }) => {
     } finally {
       if (!isPreload) setIsLoadingNext(false);
     }
-  }, [loadedIds, failedIds, readChapterCache, writeChapterCache]);
+  }, [loadedIds, failedIds]);
 
   useEffect(() => { 
     if (chapterId && chapters.length === 0) fetchChapter(chapterId); 

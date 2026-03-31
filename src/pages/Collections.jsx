@@ -49,18 +49,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
   };
 
-  // Simple debounce function
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
   const cleanTitle = (title) => {
     if (!title) return title;
     return title.replace(/^\d+\.\d+/, '');
@@ -73,9 +61,6 @@ const debounce = (func, wait) => {
 
   // Pagination logic
   const totalPages = Math.ceil(allManga.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = allManga.slice(indexOfFirstItem, indexOfLastItem);
 
   // Filter and sort manga (optimized with useMemo)
   const filteredAndSortedManga = useMemo(() => {
@@ -132,14 +117,17 @@ const debounce = (func, wait) => {
 
   // Debounced search to reduce re-renders
   const debouncedSearch = useCallback(
-    debounce((value) => {
-      setSearchQuery(value);
-    }, 300),
+    (value) => {
+      const timeoutId = setTimeout(() => {
+        setSearchQuery(value);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    },
     []
   );
 
   // Lightweight function to get basic manga info (total chapters, status) with caching
-  const fetchBasicMangaInfo = async (mangaId) => {
+  const fetchBasicMangaInfo = useCallback(async (mangaId) => {
     // Check memory cache first
     if (infoCache.current.has(mangaId)) {
       return infoCache.current.get(mangaId);
@@ -165,7 +153,7 @@ const debounce = (func, wait) => {
         
         // Cache in both memory and persistent storage
         infoCache.current.set(mangaId, info);
-        setPersistentCache(`info_${mangaId}`, { data: info });
+        setPersistentCache(`info_${mangaId}`, info);
         
         return info;
       }
@@ -176,47 +164,7 @@ const debounce = (func, wait) => {
       totalChapters: 0,
       status: 'unknown'
     };
-  };
-
-  // Fetch basic info for current page items (batched for performance)
-  const fetchBasicInfoForPage = useCallback(async (pageItems) => {
-    const itemsToFetch = pageItems.filter(manga => !mangaDetails[manga.id]);
-    
-    if (itemsToFetch.length === 0) return;
-    
-    console.log(`Fetching basic info for ${itemsToFetch.length} manga on page ${currentPage}`);
-    
-    // Fetch in larger batches for better performance
-    const batchSize = 6; // Increased from 3 to 6 for fewer API calls
-    const batches = [];
-    
-    for (let i = 0; i < itemsToFetch.length; i += batchSize) {
-      batches.push(itemsToFetch.slice(i, i + batchSize));
-    }
-    
-    for (const batch of batches) {
-      const infoPromises = batch.map(async (manga) => {
-        const info = await fetchBasicMangaInfo(manga.id);
-        return { mangaId: manga.id, info };
-      });
-      
-      try {
-        const infoResults = await Promise.all(infoPromises);
-        const detailsMap = { ...mangaDetails };
-        infoResults.forEach(({ mangaId, info }) => {
-          detailsMap[mangaId] = info;
-        });
-        setMangaDetails(detailsMap);
-        
-        // Reduced delay between batches for faster loading
-        if (batches.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms to 50ms
-        }
-      } catch (error) {
-        console.error('Error fetching info batch:', error);
-      }
-    }
-  }, [mangaDetails, currentPage]);
+  }, []);
 
   // Fetch all manga with persistent caching
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
@@ -300,7 +248,7 @@ const debounce = (func, wait) => {
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [mangaDetails]);
 
   // Refresh function
   const handleRefresh = useCallback(() => {
@@ -349,7 +297,7 @@ const debounce = (func, wait) => {
         }, 2000); // Start prefetching after 2 seconds
       }
     }
-  }, [currentPage, totalPages, loading, allManga, mangaDetails]);
+  }, [currentPage, totalPages, loading, allManga, mangaDetails, fetchBasicMangaInfo, itemsPerPage]);
 
   // Pagination controls
   const handlePageChange = (pageNumber) => {
