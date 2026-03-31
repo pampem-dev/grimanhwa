@@ -1,0 +1,79 @@
+/* Base Mihon Theme */
+body {
+  background-color: #050505;
+  color: white;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Also set html and root for complete coverage */
+html, #root {
+  background-color: #050505;
+}
+
+/* Bottom Nav Styling */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #1e1e1e;
+  border-top: 1px solid #333;
+  display: flex;
+  justify-content: space-around;
+  padding: 12px 0;
+  z-index: 1000;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.nav-item.active {
+  color: #60a5fa; /* Mihon Blue */
+}
+
+/* Manga Grid Styling */
+.manga-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 columns on mobile */
+  gap: 12px;
+  padding: 16px;
+  padding-bottom: 80px; /* Space for nav */
+}
+
+@media (min-width: 768px) {
+  .manga-grid {
+    grid-template-columns: repeat(4, 1fr); /* 4 columns on tablet/PC */
+  }
+}
+
+.manga-card {
+  background: #252525;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 2/3;
+}
+
+.manga-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Search Input Styling */
+.search-input {
+  width: calc(100% - 32px);
+  margin: 16px;
+  padding: 12px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: white;
+}

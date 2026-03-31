@@ -1,0 +1,148 @@
+import React, { useState, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import MangaCard from './MangaCard';
+
+const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollRef = useRef(null);
+
+  const scrollToIndex = (index) => {
+    const { current } = scrollRef;
+    if (current && current.children[index]) {
+      const child = current.children[index];
+      const scrollPosition = child.offsetLeft - (current.offsetWidth - child.offsetWidth) / 2;
+      current.scrollTo({ left: scrollPosition, behavior: 'smooth' });
+    }
+  };
+
+  const scroll = (direction) => {
+    const newIndex = direction === 'left' 
+      ? Math.max(0, currentIndex - 1)
+      : Math.min(manga.length - 1, currentIndex + 1);
+    setCurrentIndex(newIndex);
+    scrollToIndex(newIndex);
+  };
+
+  const handleItemClick = (item, index) => {
+    setCurrentIndex(index);
+    onMangaClick(item);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="relative w-full bg-[#050505] overflow-hidden group/carousel">
+        {/* Loading Skeleton - Single centered item */}
+        <div 
+          ref={scrollRef}
+          className="relative flex justify-center items-center px-10 md:px-20 h-[500px] md:h-[600px]"
+        >
+          <div className="flex-shrink-0 w-[300px] md:w-[400px] transition-all duration-500 ease-out">
+            <div className="rounded-xl overflow-hidden bg-gray-800/50 border border-white/10">
+              <div className="w-full aspect-[3/4.5] bg-gray-700/50 animate-pulse" />
+            </div>
+          </div>
+        </div>
+        
+        {/* Navigation Skeletons */}
+        <button className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#050505] to-transparent flex items-center justify-start pl-4 opacity-50">
+          <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse" />
+        </button>
+        <button className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#050505] to-transparent flex items-center justify-end pr-4 opacity-50">
+          <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse" />
+        </button>
+      </div>
+    );
+  }
+
+  if (!manga || manga.length === 0) return null;
+
+  return (
+    <div className="relative w-full bg-[#050505] overflow-hidden group/carousel">
+
+      {/* 🎯 CENTERED ITEM DISPLAY */}
+      <div 
+        ref={scrollRef}
+        className="relative flex justify-center items-center px-10 md:px-20 h-[500px] md:h-[600px]"
+      >
+        {manga.map((item, index) => (
+          <div 
+            key={item.id}
+            onClick={() => handleItemClick(item, index)}
+            className={`absolute flex-shrink-0 w-[300px] md:w-[400px] transition-all duration-500 ease-out cursor-pointer group ${
+              index === currentIndex 
+                ? 'scale-100 opacity-100 z-20 translate-x-0' 
+                : index === currentIndex - 1
+                  ? 'scale-75 opacity-50 z-10 -translate-x-1/2'
+                  : index === currentIndex + 1
+                    ? 'scale-75 opacity-50 z-10 translate-x-1/2'
+                    : 'scale-0 opacity-0 z-0'
+            }`}
+          >
+            {/* Rating Tag (Top Left) */}
+            <div className="absolute top-2 left-2 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Star size={10} className="text-yellow-400" fill="currentColor" />
+              <span className="text-[10px] font-bold text-white">9.6</span>
+            </div>
+
+            {/* Poster Image */}
+            <div className="rounded-xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/5 group-hover:border-blue-500/50 transition-colors">
+              <img
+                src={item.cover_url || item.cover}
+                alt={item.title}
+                className="w-full aspect-[3/4.5] object-cover"
+              />
+            </div>
+
+            {/* Floating Title (Appears on Hover) */}
+            <div className="absolute bottom-4 left-0 right-0 text-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 z-30">
+              <h3 className="text-sm font-black uppercase tracking-tight truncate px-2 text-white drop-shadow-lg bg-black/60 backdrop-blur-sm rounded-lg">
+                {item.title?.replace(/^\d+\.\d+/, '')}
+              </h3>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 🎮 NAVIGATION OVERLAYS */}
+      <button
+        onClick={() => scroll('left')}
+        disabled={currentIndex === 0}
+        className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#050505] to-transparent flex items-center justify-start pl-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity z-50 disabled:opacity-30"
+      >
+        <div className="p-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all">
+          <ChevronLeft size={30} />
+        </div>
+      </button>
+
+      <button
+        onClick={() => scroll('right')}
+        disabled={currentIndex === manga.length - 1}
+        className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#050505] to-transparent flex items-center justify-end pr-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity z-50 disabled:opacity-30"
+      >
+        <div className="p-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all">
+          <ChevronRight size={30} />
+        </div>
+      </button>
+
+      {/* 📍 Page Indicators */}
+      <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-40">
+        {manga.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => {
+              setCurrentIndex(index);
+              scrollToIndex(index);
+            }}
+            className={`w-2 h-2 rounded-full transition-all ${
+              index === currentIndex 
+                ? 'bg-white w-8' 
+                : 'bg-white/30 hover:bg-white/50'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default HeroCarousel;

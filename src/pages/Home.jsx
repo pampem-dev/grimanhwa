@@ -1,0 +1,643 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Star, TrendingUp, Clock, Play, Crown, Flame } from 'lucide-react';
+import MangaCard from '../components/MangaCard';
+import HeroCarousel from '../components/HeroCarousel';
+
+const Home = ({ onMangaSelect, onMangaDetails }) => {
+  const [featuredManga, setFeaturedManga] = useState([]);
+  const [trendingManga, setTrendingManga] = useState([]);
+  const [recentManga, setRecentManga] = useState([]);
+  const [recommendedManga, setRecommendedManga] = useState([]);
+  const [manhwaManga, setManhwaManga] = useState([]);
+  const [loadingTrending, setLoadingTrending] = useState(true);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+  const [loadingPopular, setLoadingPopular] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
+  const [allMangaList, setAllMangaList] = useState([]); // Store all manga for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10); // 10 items per page for 2-column layout
+  const [fetchError, setFetchError] = useState(null); // Error state
+  const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
+
+  // Cache for API responses
+  const apiCache = useRef(new Map());
+  const chapterCache = useRef(new Map());
+
+  // Persistent cache functions
+  const getPersistentCache = (key) => {
+    try {
+      const cached = localStorage.getItem(`mangaCache_${key}`);
+      if (cached) {
+        const data = JSON.parse(cached);
+        // Check if cache is still valid (5 minutes)
+        if (Date.now() - data.timestamp < 5 * 60 * 1000) {
+          return data;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to read persistent cache:', err);
+    }
+    return null;
+  };
+
+  const setPersistentCache = (key, data) => {
+    try {
+      const cacheData = {
+        ...data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(`mangaCache_${key}`, JSON.stringify(cacheData));
+    } catch (err) {
+      console.warn('Failed to write persistent cache:', err);
+    }
+  };
+
+  const resetAutoPlay = () => {
+    setIsAutoPlaying(false);
+    setTimeout(() => setIsAutoPlaying(true), 100);
+  };
+
+  const getMangaList = (data) => {
+    if (Array.isArray(data)) return data; 
+    return data.manga || data.trending || data.results || [];
+  };
+
+  const cleanTitle = (title) => {
+    if (!title) return title;
+    return title.replace(/^\d+\.\d+/, '');
+  };
+
+  // Optimized chapter fetching with persistent caching
+  const fetchLatestChapter = async (mangaId) => {
+    // Check memory cache first
+    if (chapterCache.current.has(mangaId)) {
+      return chapterCache.current.get(mangaId);
+    }
+
+    // Check persistent cache
+    const persistentCache = getPersistentCache(`chapter_${mangaId}`);
+    if (persistentCache) {
+      // Also store in memory cache for this session
+      chapterCache.current.set(mangaId, persistentCache.data);
+      return persistentCache.data;
+    }
+
+    try {
+      const response = await fetch(`http://10.7.6.206:8000/api/kaynscan/manga/?id=${encodeURIComponent(mangaId)}`);
+      if (response.ok) {
+        const data = await response.json();
+        const chapters = data.chapters || [];
+        if (chapters.length > 0) {
+          const latestChapter = chapters[0]; // Assuming chapters are sorted by latest first
+          const chapterInfo = {
+            number: extractChapterNumber(latestChapter),
+            title: latestChapter.title || `Chapter ${extractChapterNumber(latestChapter)}`
+          };
+          
+          // Cache in both memory and persistent storage
+          chapterCache.current.set(mangaId, chapterInfo);
+          setPersistentCache(`chapter_${mangaId}`, { data: chapterInfo });
+          
+          return chapterInfo;
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to fetch latest chapter for ${mangaId}:`, err);
+    }
+    return null;
+  };
+
+  const extractChapterNumber = (chapter) => {
+    if (!chapter) return '1';
+    if (chapter.chapter_num) return chapter.chapter_num;
+    
+    const title = chapter.title || '';
+    const match = title.match(/chapter\s*(\d+)/i);
+    if (match?.[1]) {
+      let num = match[1];
+      if (num.length > 3) num = num.slice(0, 3);
+      return num;
+    }
+    
+    const numberMatch = title.match(/(\d+)/);
+    return numberMatch?.[1] || '1';
+  };
+
+  // const extractRating = (title) => {
+  //   if (!title) return '8.8';
+  //   const match = title.match(/^(\d+\.\d+)/);
+  //   return match ? match[1] : '8.8';
+  // };
+
+  // Pagination logic
+  const totalPages = Math.ceil(allMangaList.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = allMangaList.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Fetch chapters for current page items
+  const fetchChaptersForPage = useCallback(async (pageItems) => {
+    // Filter out items we already have chapter info for
+    const itemsToFetch = pageItems.filter(manga => !latestChapters[manga.id]);
+    
+    if (itemsToFetch.length === 0) return; // Skip if we already have all chapters
+    
+    const chapterPromises = itemsToFetch.map(async (manga) => {
+      const chapterInfo = await fetchLatestChapter(manga.id);
+      return { mangaId: manga.id, chapterInfo };
+    });
+    
+    try {
+      const chapterResults = await Promise.all(chapterPromises);
+      const chaptersMap = { ...latestChapters };
+      chapterResults.forEach(({ mangaId, chapterInfo }) => {
+        if (chapterInfo) {
+          chaptersMap[mangaId] = chapterInfo;
+        }
+      });
+      setLatestChapters(chaptersMap);
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+    }
+  }, [latestChapters]);
+
+  // Debounced page change to prevent rapid requests
+  const debouncedPageChange = useCallback((pageNumber) => {
+    setCurrentPage(pageNumber);
+    // Scroll to Latest Updates section with offset for mobile header
+    const latestSection = document.getElementById('latest-updates-section');
+    if (latestSection) {
+      const headerHeight = window.innerWidth < 640 ? 220 : 80; // Increased mobile offset for full header
+      const elementPosition = latestSection.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerHeight;
+      
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+  }, []);
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      debouncedPageChange(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      debouncedPageChange(currentPage + 1);
+    }
+  };
+
+  // Fetch chapters when page changes (but only for new items)
+  useEffect(() => {
+    if (currentItems.length > 0 && !loadingRecent) {
+      fetchChaptersForPage(currentItems);
+    }
+  }, [currentPage, currentItems.length, fetchChaptersForPage, loadingRecent]);
+
+  // Optimized fetchAllManga with persistent caching and error handling
+  const fetchAllManga = useCallback(async (forceRefresh = false) => {
+    const cacheKey = 'allManga';
+    
+    // Check persistent cache first (unless force refresh)
+    if (!forceRefresh) {
+      const persistentCache = getPersistentCache(cacheKey);
+      if (persistentCache) {
+        console.log('Using persistent cached data');
+        const { allManga, featured, trending, recent, recommended, manhwa } = persistentCache;
+        setAllMangaList(allManga);
+        setFeaturedManga(featured);
+        setTrendingManga(trending);
+        setRecentManga(recent);
+        setRecommendedManga(recommended);
+        setManhwaManga(manhwa);
+        
+        // Also store in memory cache for this session
+        apiCache.current.set(cacheKey, persistentCache);
+        
+        setLoadingTrending(false);
+        setLoadingRecent(false);
+        setLoadingPopular(false);
+        
+        // Load cached chapters
+        const cachedChapters = {};
+        Object.keys(latestChapters).forEach(mangaId => {
+          const chapterCache = getPersistentCache(`chapter_${mangaId}`);
+          if (chapterCache) {
+            cachedChapters[mangaId] = chapterCache.data;
+          }
+        });
+        if (Object.keys(cachedChapters).length > 0) {
+          setLatestChapters(cachedChapters);
+        }
+        
+        return;
+      }
+    }
+
+    try {
+      console.log('Starting fresh manga fetch...');
+      setFetchError(null);
+      if (forceRefresh) setIsRefreshing(true);
+      
+      // Always use backend API at port 8000
+      const apiUrl = 'http://10.7.6.206:8000/api/kaynscan/search/?q=a';
+      console.log('Using API URL:', apiUrl);
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(apiUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      console.log('Fetch response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('API response data:', data);
+        const allManga = getMangaList(data);
+        
+        if (allManga.length === 0) {
+          throw new Error('No manga data received from API');
+        }
+        
+        // Store all manga for pagination
+        setAllMangaList(allManga);
+        
+        // Create optimized slices
+        const featured = allManga.slice(0, 15);
+        const trending = allManga.slice(0, 10);
+        const recent = allManga.slice(10, 20);
+        const recommended = allManga.slice(20, 30);
+        const manhwa = allManga.slice(30, 40);
+        
+        // Update state
+        setFeaturedManga(featured);
+        setTrendingManga(trending);
+        setRecentManga(recent);
+        setRecommendedManga(recommended);
+        setManhwaManga(manhwa);
+        
+        // Cache the processed data in both memory and persistent storage
+        const cacheData = {
+          allManga,
+          featured,
+          trending,
+          recent,
+          recommended,
+          manhwa,
+          timestamp: Date.now()
+        };
+        apiCache.current.set(cacheKey, cacheData);
+        setPersistentCache(cacheKey, cacheData);
+        
+        // Optimized chapter fetching - only for visible items first
+        const visibleManga = recent.slice(0, 10); // First page items
+        fetchChaptersBatch(visibleManga);
+        
+        setLoadingTrending(false);
+        setLoadingRecent(false);
+        setLoadingPopular(false);
+      } else {
+        console.error('API response not ok:', response.status, response.statusText);
+        throw new Error(`API request failed: ${response.status}`);
+      }
+    } catch (err) {
+      console.error("Home fetch error:", err);
+      setFetchError(err.message);
+      setLoadingTrending(false);
+      setLoadingRecent(false);
+      setLoadingPopular(false);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Batch chapter fetching for better performance
+  const fetchChaptersBatch = async (mangaList) => {
+    const batchSize = 5; // Process 5 at a time to avoid overwhelming the API
+    const batches = [];
+    
+    for (let i = 0; i < mangaList.length; i += batchSize) {
+      batches.push(mangaList.slice(i, i + batchSize));
+    }
+    
+    for (const batch of batches) {
+      const chapterPromises = batch.map(async (manga) => {
+        const chapterInfo = await fetchLatestChapter(manga.id);
+        return { mangaId: manga.id, chapterInfo };
+      });
+      
+      try {
+        const chapterResults = await Promise.all(chapterPromises);
+        const chaptersMap = { ...latestChapters };
+        chapterResults.forEach(({ mangaId, chapterInfo }) => {
+          if (chapterInfo) {
+            chaptersMap[mangaId] = chapterInfo;
+          }
+        });
+        setLatestChapters(chaptersMap);
+      } catch (error) {
+        console.error('Error fetching chapter batch:', error);
+      }
+      
+      // Small delay between batches to be gentle on the API
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  };
+
+  // Refresh function
+  const handleRefresh = useCallback(() => {
+    // Clear all caches (both memory and persistent)
+    apiCache.current.clear();
+    chapterCache.current.clear();
+    
+    // Clear persistent cache keys
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('mangaCache_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    setLatestChapters({});
+    // Force refresh
+    fetchAllManga(true);
+  }, [fetchAllManga]);
+
+  useEffect(() => {
+    fetchAllManga();
+  }, [fetchAllManga]);
+
+  useEffect(() => {
+    if (featuredManga.length === 0 || !isAutoPlaying) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % featuredManga.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [featuredManga, isAutoPlaying]);
+
+  const handleMangaClick = (manga) => {
+    if (onMangaDetails) {
+      onMangaDetails(manga);
+    } else if (onMangaSelect) {
+      onMangaSelect(manga.id);
+    }
+  };
+
+  const renderTrending = () => (
+    <div>
+      <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+        <TrendingUp className="text-blue-500" size={20} />
+        Trending Today
+      </h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {loadingTrending
+          ? Array.from({ length: 5 }).map((_, i) => <MangaCard key={i} isLoading />)
+          : trendingManga.map((manga) => (
+              <MangaCard
+                key={manga.id}
+                title={manga.title}
+                coverUrl={manga.cover_url || manga.cover}
+                onClick={() => handleMangaClick(manga)}
+              />
+            ))
+        }
+      </div>
+    </div>
+  );
+
+  const renderLatest = () => (
+    <div id="latest-updates-section">
+      <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+        <Clock className="text-blue-500" size={20} />
+        Latest Updates ({allMangaList.length} total)
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {loadingRecent
+          ? Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="flex gap-4 p-3">
+                <div className="w-16 h-20 rounded bg-gray-700 animate-pulse shrink-0" />
+                <div className="flex-1 flex flex-col gap-2 justify-center">
+                  <div className="h-3 bg-gray-700 animate-pulse rounded w-3/4" />
+                  <div className="h-2 bg-gray-700 animate-pulse rounded w-1/2" />
+                </div>
+              </div>
+            ))
+          : currentItems.map((manga, index) => {
+              const latestChapter = latestChapters[manga.id];
+              return (
+                <div 
+                  key={manga.id || index} 
+                  className="flex gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group"
+                  onClick={() => onMangaDetails(manga)}
+                >
+                  <div className="relative shrink-0">
+                    <img
+                      src={manga.cover_url || manga.cover}
+                      className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
+                      alt={manga.title}
+                    />
+                    {/* <div className="absolute top-1 left-1 bg-black/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
+                      {extractRating(manga.title)}
+                    </div> */}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight">
+                      {cleanTitle(manga.title)}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-widest">
+                      {latestChapter ? `Chapter ${latestChapter.number}` : 'Loading...'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+        }
+      </div>
+      
+      {/* Pagination Controls */}
+      {!loadingRecent && totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-8">
+          <button
+            onClick={handlePrevPage}
+            disabled={currentPage === 1}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              currentPage === 1
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+          >
+            Previous
+          </button>
+          
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => debouncedPageChange(pageNum)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/10 text-white hover:bg-white/20'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+          
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              currentPage === totalPages
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      )}
+      
+      {/* Page Info */}
+      {!loadingRecent && totalPages > 1 && (
+        <div className="text-center mt-4 text-sm text-gray-500">
+          Page {currentPage} of {totalPages} ({allMangaList.length} manga)
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPopular = () => (
+    <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
+      <h2 className="text-lg font-bold mb-6 text-white flex items-center gap-2">
+        <Crown className="text-yellow-500" size={18} />
+        Popular
+      </h2>
+      <div className="space-y-5">
+        {loadingPopular
+          ? Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-6 h-4 bg-gray-700 animate-pulse" />
+                <div className="w-12 h-16 bg-gray-700 animate-pulse rounded" />
+              </div>
+            ))
+          : trendingManga.slice(0, 6).map((manga, index) => (
+              <div
+                key={manga.id}
+                className="flex items-center gap-4 cursor-pointer hover:translate-x-1 transition-transform group"
+                onClick={() => handleMangaClick(manga)}
+              >
+                <div className={`w-6 text-center font-black italic ${index < 3 ? 'text-blue-500' : 'text-gray-600'}`}>
+                  {index + 1}
+                </div>
+                <img
+                  src={manga.cover_url || manga.cover}
+                  className="w-12 h-16 object-cover rounded shadow-md group-hover:ring-2 ring-blue-500/50"
+                  alt=""
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white truncate uppercase tracking-tighter group-hover:text-blue-400">
+                    {cleanTitle(manga.title)}
+                  </p>
+                  {/* <p className="text-[10px] text-gray-500 font-bold uppercase">Action, Fantasy</p> */}
+                </div>
+              </div>
+            ))
+        }
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#050505] text-white">
+      {/* Error Handling */}
+      {fetchError && (
+        <div className="bg-red-600/10 border border-red-600/20 text-red-400 p-4 m-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-bold">Error loading manga</p>
+              <p className="text-sm">{fetchError}</p>
+            </div>
+            <button
+              onClick={handleRefresh}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Refresh Button */}
+      <div className="fixed top-4 right-4 z-50">
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className={`p-3 rounded-full transition-all ${
+            isRefreshing 
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-white/10 text-white hover:bg-white/20'
+          }`}
+          title="Refresh manga"
+        >
+          <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+      
+    {/* 🚀 HERO SECTION: CLEAN BLACK BACKGROUND */}
+    <section className="w-full bg-[#050505]"> 
+      
+      {/* Ensure carousel doesn't have its own top-margin or conflicting background */}
+      <HeroCarousel 
+        manga={featuredManga} 
+        onMangaClick={handleMangaClick}
+        isLoading={loadingTrending}
+      />
+    </section>
+
+      {/* 📦 CENTERED CONTENT (Standard width) */}
+      <main className="max-w-[1600px] mx-auto px-6 md:px-12 lg:px-20 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          
+          {/* LEFT SIDE (Trending & Latest) */}
+          <div className="lg:col-span-8 space-y-16">
+            {renderTrending()}
+            {renderLatest()}
+          </div>
+
+          {/* RIGHT SIDE (Popular Sidebar) */}
+          <aside className="lg:col-span-4">
+            <div className="sticky top-24">
+              {renderPopular()}
+            </div>
+          </aside>
+
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default Home;
