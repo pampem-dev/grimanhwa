@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { Home, Star, History } from 'lucide-react';
-import { Search, Book, Heart, User, Settings, Loader2, X } from 'lucide-react';
+import { Book, Settings} from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import Footer from './Footer';
 

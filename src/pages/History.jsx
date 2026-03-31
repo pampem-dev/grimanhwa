@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock, Trash2, BookOpen } from 'lucide-react';
+import { Trash2, BookOpen } from 'lucide-react';
 
 const HISTORY_KEY = 'manga_reader_history_v1';
 

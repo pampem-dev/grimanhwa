@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Home, AlertCircle, RefreshCw, Book, Clock, Star, Loader2, ArrowUp, X } from 'lucide-react';
+import { Loader2, ArrowUp, X } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 const LazyImage = ({ src, alt, className, style }) => {

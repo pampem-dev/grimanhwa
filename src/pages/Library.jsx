@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Book, Trash2, Star, Clock, Grid, List, Search, ArrowUpDown } from 'lucide-react';
+import { Book, Trash2, Grid, List, Search, ArrowUpDown } from 'lucide-react';
 
 const Library = ({ onMangaSelect, onMangaDetails }) => {
   const [libraryManga, setLibraryManga] = useState([]);

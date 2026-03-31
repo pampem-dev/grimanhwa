@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {Moon, Sun, Download, Trash2, Shield, Bell, Globe, Smartphone, Monitor, ChevronRight, Info, ExternalLink, BookOpen } from 'lucide-react';
+import {Moon, Sun, Download, Trash2, Shield, Bell, Globe, ChevronRight, Info, ExternalLink, BookOpen } from 'lucide-react';
 
 const Settings = () => {
   const [darkMode, setDarkMode] = useState(true);

@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import MangaCard from './MangaCard';
 
 const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);

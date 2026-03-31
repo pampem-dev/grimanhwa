@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { Book, Grid, List, Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, ArrowUpDown } from 'lucide-react';
+import { Book, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
-import MangaCard from '../components/MangaCard';
 
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [allManga, setAllManga] = useState([]);

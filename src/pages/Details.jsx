@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
-  ArrowLeft, Home, Book, Clock, Star, Heart, Share2, Bookmark, 
-  ChevronLeft, Play, Info, List, User, Tag
+  Book, Clock, Star, 
+  ChevronLeft, Play, Info, List
 } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 

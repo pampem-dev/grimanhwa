@@ -1,6 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Book, Star, Heart, Plus } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 const SkeletonCard = () => (
