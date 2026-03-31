@@ -115,16 +115,38 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     setCurrentPage(1);
   }, [searchQuery, sortBy, sortOrder]);
 
-  // Debounced search to reduce re-renders
-  const debouncedSearch = useCallback(
-    (value) => {
-      const timeoutId = setTimeout(() => {
-        setSearchQuery(value);
-      }, 300);
-      return () => clearTimeout(timeoutId);
-    },
-    []
-  );
+  // Optimized debounced search with ref to prevent input lag
+  const searchTimeoutRef = useRef(null);
+  const [inputValue, setInputValue] = useState(searchQuery);
+  
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setInputValue(value); // Update input immediately for responsive typing
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Set new timeout
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value);
+    }, 150); // Reduced from 300ms for more responsive feel
+  };
+
+  // Sync input value with search query when external changes occur
+  useEffect(() => {
+    setInputValue(searchQuery);
+  }, [searchQuery]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Lightweight function to get basic manga info (total chapters, status) with caching
   const fetchBasicMangaInfo = useCallback(async (mangaId) => {
@@ -474,8 +496,8 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
               <input
                 type="text"
                 placeholder="Search manga..."
-                value={searchQuery}
-                onChange={(e) => debouncedSearch(e.target.value)}
+                value={inputValue}
+                onChange={handleSearchChange}
                 className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/20 transition-colors"
               />
             </div>
