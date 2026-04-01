@@ -298,7 +298,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for web scraping
       
       const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
