@@ -97,7 +97,7 @@ const Reader = ({ chapterId, onExit }) => {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000); // Increased for Selenium stability
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s for efficient Selenium
 
       const response = await fetch(API_ENDPOINTS.CHAPTER(id), {
         signal: controller.signal,
