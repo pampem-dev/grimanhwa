@@ -275,7 +275,6 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
           <div className="flex flex-col items-center justify-center py-32 text-gray-500">
             <Book size={48} className="mb-4 opacity-20" />
             <p className="text-lg font-medium mb-2">Your library is empty</p>
-            <p className="text-sm">Add manga from the Collections page to build your library</p>
           </div>
         ) : (
           <>
