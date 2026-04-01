@@ -1,5 +1,9 @@
 // Central API configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://grimanhwa-api-production.up.railway.app/';
+const API_BASE_URL = 'http://10.7.6.206:8000/';
+
+//ADD THIS PAG PROD NA
+//  process.env.REACT_APP_API_URL ||
+
 
 // Export base URL and helper functions
 export const API_URL = API_BASE_URL;

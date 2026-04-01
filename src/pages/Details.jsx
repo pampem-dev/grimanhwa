@@ -307,6 +307,21 @@ const Details = ({ manga, onBack, onChapterRead }) => {
         }
       }
 
+      // OPTIMIZATION: Check if we already have chapters from Home page navigation
+      if (manga.chapters && manga.chapters.length > 0 && !forceRefresh) {
+        console.log('Using existing chapters data from navigation');
+        setChapters(manga.chapters);
+        setLoading(false);
+        
+        // Cache the existing data for future use
+        writeDetailsCache(manga.id, {
+          description: manga.description,
+          status: manga.status,
+          chapters: manga.chapters
+        });
+        return;
+      }
+
       const response = await fetch(API_ENDPOINTS.MANGA(manga.id));
       if (response.ok) {
         let chaptersData = await response.json();
