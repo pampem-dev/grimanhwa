@@ -3,13 +3,18 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, ArrowUp, X } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
-const LazyImage = ({ src, alt, className, style }) => {
+const LazyImage = ({ src, alt, className, style, priority = false }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const [error, setError] = useState(false);
   const imgRef = useRef();
 
   useEffect(() => {
+    if (priority) {
+      setIsInView(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -17,11 +22,11 @@ const LazyImage = ({ src, alt, className, style }) => {
           observer.disconnect();
         }
       },
-      { threshold: 0.05, rootMargin: '800px' }
+      { threshold: 0.01, rootMargin: '1200px' } // Larger margin for earlier loading
     );
     if (imgRef.current) observer.observe(imgRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [priority]);
 
   return (
     <div ref={imgRef} className="relative w-full flex justify-center bg-black overflow-hidden">
@@ -29,14 +34,16 @@ const LazyImage = ({ src, alt, className, style }) => {
         <img
           src={src}
           alt={alt}
-          className={`${className} w-full md:max-w-[850px] lg:max-w-[900px] h-auto object-contain block mx-auto`}
+          className={`${className} w-full md:max-w-[850px] lg:max-w-[900px] h-auto object-contain block mx-auto transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
           style={style}
           onLoad={() => setIsLoaded(true)}
           onError={() => setError(true)}
+          loading="lazy"
+          decoding="async"
         />
       )}
       {(!isLoaded || !isInView) && !error && (
-        <div className="bg-gray-900/40 animate-pulse w-full max-w-[900px]" style={{ ...style, minHeight: '800px' }} />
+        <div className="bg-gray-900/40 animate-pulse w-full max-w-[900px]" style={{ ...style, minHeight: '600px' }} />
       )}
     </div>
   );
@@ -81,7 +88,7 @@ const Reader = ({ chapterId, onExit }) => {
     return match ? parseInt(match[1]) : 1;
   };
 
-  // UPDATED: fetchChapter now handles background preloading
+  // OPTIMIZED: fetchChapter with better error handling and performance
   const fetchChapter = useCallback(async (id, isPreload = false) => {
     if (!id || loadedIds.has(id) || failedIds.has(id)) return;
 
@@ -107,26 +114,31 @@ const Reader = ({ chapterId, onExit }) => {
         setLoadedIds((prev) => new Set(prev).add(id));
         writeChapterCache(id, { pages: data.pages, chapterNum });
 
-        // --- PRE-FETCH LOGIC ---
-        // If we just loaded Ch. 5, start fetching Ch. 6 silently after a small delay
-        const nextId = id.replace(/chapter\/\d+/i, `chapter/${chapterNum + 1}`);
-        setTimeout(() => {
-          fetchChapter(nextId, true); // Trigger as preload
-        }, 3000); 
+        // --- SMART PRE-FETCH LOGIC ---
+        // Only pre-fetch if not already loading and not too many chapters loaded
+        if (!isPreload && chapters.length < 3) {
+          const nextId = id.replace(/chapter\/\d+/i, `chapter/${chapterNum + 1}`);
+          setTimeout(() => {
+            fetchChapter(nextId, true);
+          }, 2000); // Faster pre-fetch
+        }
       }
     } catch (err) {
       console.error("Fetch failed:", err);
-      setFailedIds((prev) => new Set(prev).add(id));
+      // Don't immediately mark as failed - allow retries
+      if (!isPreload) {
+        setFailedIds((prev) => new Set(prev).add(id));
+      }
     } finally {
       if (!isPreload) setIsLoadingNext(false);
     }
-  }, [loadedIds, failedIds, readChapterCache, writeChapterCache]);
+  }, [loadedIds, failedIds, readChapterCache, writeChapterCache, chapters.length]);
 
   useEffect(() => { 
     if (chapterId && chapters.length === 0) fetchChapter(chapterId); 
   }, [chapterId, fetchChapter, chapters.length]);
 
-  // Observer for manual scroll-triggered loading (as a fallback for pre-fetch)
+  // OPTIMIZED: Better observer with larger margin for earlier loading
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
@@ -134,13 +146,13 @@ const Reader = ({ chapterId, onExit }) => {
           const last = chapters[chapters.length - 1];
           const nextId = last.id.replace(/chapter\/\d+/i, `chapter/${last.chapterNum + 1}`);
           
-          // If pre-fetch hasn't finished it yet, call it normally to show the spinner
-          if (!loadedIds.has(nextId)) {
+          // Only load next chapter if we don't have too many already
+          if (!loadedIds.has(nextId) && chapters.length < 4) {
             fetchChapter(nextId, false);
           }
         }
       },
-      { threshold: 0.1, rootMargin: '600px' }
+      { threshold: 0.1, rootMargin: '1200px' } // Earlier trigger
     );
     if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
@@ -197,6 +209,7 @@ const Reader = ({ chapterId, onExit }) => {
                   src={url} 
                   className="w-full" 
                   style={{ marginBottom: '-1px' }} 
+                  priority={index < 3} // Load first 3 images immediately
                 />
               ))}
             </div>
@@ -207,7 +220,7 @@ const Reader = ({ chapterId, onExit }) => {
           {isLoadingNext && (
             <div className="flex flex-col items-center space-y-4">
               <Loader2 size={28} className="animate-spin text-indigo-500" />
-              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-600">Loading Next Chapter</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-600">Loading Chapter</p>
             </div>
           )}
         </div>
