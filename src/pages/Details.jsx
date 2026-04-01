@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Book, Clock, Star, 
-  Play, Info, List
+  Play, Info, List, Lock
 } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -550,20 +550,41 @@ const Details = ({ manga, onBack, onChapterRead }) => {
                   {chapters.length > 0 ? (
                     chapters.map((chapter) => {
                       const isRead = readChapters.has(chapter.id);
+                      const isLocked = chapter.is_locked || false;
                           
                           return (
                         <button
                           key={chapter.id}
-                          onClick={() => handleChapterClick(chapter)}
-                          className={`w-full bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 text-left hover:from-blue-900/30 hover:to-blue-800/30 hover:border-blue-600/50 transition-all duration-300 group backdrop-blur-sm ${isRead ? 'opacity-60' : ''}`}
+                          onClick={() => !isLocked && handleChapterClick(chapter)}
+                          disabled={isLocked}
+                          className={`w-full bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 text-left hover:from-blue-900/30 hover:to-blue-800/30 hover:border-blue-600/50 transition-all duration-300 group backdrop-blur-sm relative overflow-hidden ${
+                            isRead ? 'opacity-60' : ''
+                          } ${
+                            isLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                          }`}
                         >
-                          <div className="flex items-center justify-between">
+                          {/* Lock overlay for locked chapters */}
+                          {isLocked && (
+                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center">
+                              <div className="flex flex-col items-center space-y-2">
+                                <Lock size={24} className="text-yellow-400" />
+                                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Premium</span>
+                                <span className="text-xs text-gray-300">Join to unlock</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className={`flex items-center justify-between ${isLocked ? 'blur-sm' : ''}`}>
                             <div className="flex items-center space-x-4 flex-1">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className={`font-bold text-base transition-colors truncate ${isRead
+                                  <h3 className={`font-bold text-base transition-colors truncate ${
+                                    isRead
                                       ? 'text-green-400 group-hover:text-green-300'
-                                      : 'text-white group-hover:text-blue-300'}`}>
+                                      : isLocked
+                                      ? 'text-gray-400'
+                                      : 'text-white group-hover:text-blue-300'
+                                  }`}>
                                     {getChapterDisplayTitle(chapter)}
                                   </h3>
                                   {isRead && (
@@ -571,9 +592,15 @@ const Details = ({ manga, onBack, onChapterRead }) => {
                                       ✓ READ
                                     </span>
                                   )}
+                                  {isLocked && (
+                                    <span className="flex-shrink-0 text-xs bg-gradient-to-r from-yellow-600/20 to-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full font-medium border border-yellow-600/30 flex items-center space-x-1">
+                                      <Lock size={10} />
+                                      <span>LOCKED</span>
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center space-x-3 text-xs">
-                                  <div className="flex items-center space-x-1 text-gray-500">
+                                  <div className={`flex items-center space-x-1 ${isLocked ? 'text-gray-500' : 'text-gray-500'}`}>
                                     <Clock size={11} />
                                     <span className="font-medium">
                                       {getChapterDisplayDate(chapter)}
@@ -583,9 +610,13 @@ const Details = ({ manga, onBack, onChapterRead }) => {
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 ml-4">
-                              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isRead 
-                                ? 'bg-green-500 shadow-lg shadow-green-500/50' 
-                                : 'bg-gray-600 group-hover:bg-blue-500 group-hover:shadow-lg group-hover:shadow-blue-500/50'}`}>
+                              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                isRead 
+                                  ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                                  : isLocked
+                                  ? 'bg-yellow-500 shadow-lg shadow-yellow-500/50'
+                                  : 'bg-gray-600 group-hover:bg-blue-500 group-hover:shadow-lg group-hover:shadow-blue-500/50'
+                              }`}>
                               </div>
                             </div>
                           </div>
