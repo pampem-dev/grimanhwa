@@ -96,14 +96,7 @@ const Reader = ({ chapterId, onExit }) => {
     if (!isPreload) setIsLoadingNext(true);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s for optimized Selenium
-
-      const response = await fetch(API_ENDPOINTS.CHAPTER(id), {
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+      const response = await fetch(API_ENDPOINTS.CHAPTER(id));
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
