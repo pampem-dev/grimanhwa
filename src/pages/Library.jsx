@@ -173,7 +173,6 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <h1 className="text-3xl font-bold text-white">My Library</h1>
-            <div className="text-sm text-gray-400">Loading...</div>
           </div>
 
           {/* Loading Skeleton Grid */}

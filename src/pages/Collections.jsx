@@ -79,6 +79,9 @@ const debounce = (func, wait) => {
 
   // Filter and sort manga (optimized with useMemo)
   const filteredAndSortedManga = useMemo(() => {
+    // Early return if no data
+    if (allManga.length === 0) return [];
+    
     let filtered = allManga;
     
     // Apply search filter (optimized)
@@ -130,13 +133,13 @@ const debounce = (func, wait) => {
     setCurrentPage(1);
   }, [searchQuery, sortBy, sortOrder]);
 
-  // Debounced search to reduce re-renders
-  const debouncedSearch = useCallback(
-    debounce((value) => {
-      setSearchQuery(value);
-    }, 300),
-    []
-  );
+  // Remove debounce for faster typing - DISABLED
+  // const debouncedSearch = useCallback(
+  //   debounce((value) => {
+  //     setSearchQuery(value);
+  //   }, 300),
+  //   []
+  // );
 
   // Lightweight function to get basic manga info (total chapters, status) with caching
   const fetchBasicMangaInfo = async (mangaId) => {
@@ -447,7 +450,6 @@ const debounce = (func, wait) => {
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <h1 className="text-3xl font-bold text-white">Collections</h1>
-            <div className="text-sm text-gray-400">Loading...</div>
           </div>
 
           {/* Loading Skeleton Grid */}
@@ -527,7 +529,7 @@ const debounce = (func, wait) => {
                 type="text"
                 placeholder="Search manga..."
                 value={searchQuery}
-                onChange={(e) => debouncedSearch(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/20 transition-colors"
               />
             </div>

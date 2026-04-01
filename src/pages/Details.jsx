@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Book, Clock, Star, 
-  ChevronLeft, Play, Info, List
+  Play, Info, List
 } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -11,7 +11,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true); // Default expanded for better UX
   const [mangaDetails, setMangaDetails] = useState(manga);
   const [readChapters, setReadChapters] = useState(new Set()); // Track read chapters
-  const [swipeStates, setSwipeStates] = useState({}); // Track swipe animations per chapter
   const [isInLibrary, setIsInLibrary] = useState(false); // Track if manga is in library
 
   const DETAILS_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -124,70 +123,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     });
   };
 
-  // Swipe handlers
-  const handleSwipeStart = (e, chapter) => {
-    e.preventDefault(); // Prevent default touch behavior
-    e.stopPropagation(); // Stop event from bubbling up
-    
-    const touch = e.touches[0];
-    chapter.swipeStartX = touch.clientX;
-    chapter.swipeStartTime = Date.now();
-    
-    // Initialize swipe state for this chapter
-    setSwipeStates(prev => ({
-      ...prev,
-      [chapter.id]: { 
-        isSwiping: true, 
-        startX: touch.clientX, 
-        currentX: touch.clientX 
-      }
-    }));
-  };
-
-  const handleSwipeMove = (e, chapter) => {
-    e.preventDefault(); // Prevent default touch behavior
-    e.stopPropagation(); // Stop event from bubbling up
-    
-    const touch = e.touches[0];
-    const currentX = touch.clientX;
-    
-    // Update swipe state with current position
-    setSwipeStates(prev => ({
-      ...prev,
-      [chapter.id]: { 
-        ...prev[chapter.id], 
-        currentX: currentX 
-      }
-    }));
-  };
-
-  const handleSwipeEnd = (e, chapter) => {
-    e.preventDefault(); // Prevent default touch behavior
-    e.stopPropagation(); // Stop event from bubbling up
-    
-    const touch = e.changedTouches[0];
-    const swipeEndX = touch.clientX;
-    const swipeEndTime = Date.now();
-    
-    const swipeDistance = chapter.swipeStartX - swipeEndX; // Changed: left swipe = positive distance
-    const swipeTime = swipeEndTime - chapter.swipeStartTime;
-    
-    // Check if it's a valid swipe (left swipe, reasonable distance and time)
-    if (swipeDistance > 50 && swipeTime < 500) {
-      toggleChapterReadStatus(chapter.id);
-    }
-    
-    // Reset swipe state
-    setSwipeStates(prev => ({
-      ...prev,
-      [chapter.id]: { 
-        isSwiping: false, 
-        startX: 0, 
-        currentX: 0 
-      }
-    }));
-  };
-
   // --- Logic remains unchanged ---
   const getChapterDisplayTitle = (chapter) => {
     if (chapter?.chapter_num) {
@@ -208,12 +143,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
   };
 
   const getChapterDisplayDate = (chapter) => {
-    // Debug: Log what we're working with
-    console.log('Chapter data for date:', {
-      created_at: chapter?.created_at,
-      title: chapter?.title,
-      id: chapter?.id
-    });
     
     if (chapter?.created_at) {
       const chapterDate = new Date(chapter.created_at);
@@ -247,7 +176,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     
     // Fallback: try to extract date from title
     const title = chapter?.title || '';
-    console.log('Trying to extract date from title:', title);
     
     // First, check if title already contains relative time expressions
     const relativeTimePatterns = [
@@ -268,7 +196,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     for (const pattern of relativeTimePatterns) {
       const match = title.match(pattern);
       if (match) {
-        console.log('Found relative time expression:', match[0]);
         // Return the matched expression, properly capitalized
         let result = match[0].toLowerCase();
         return result.charAt(0).toUpperCase() + result.slice(1);
@@ -287,13 +214,11 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     for (const pattern of datePatterns) {
       match = title.match(pattern);
       if (match) {
-        console.log('Found date pattern:', match[0]);
         break;
       }
     }
     
     if (!match) {
-      console.log('No date found, returning Recently');
       return 'Recently';
     }
     
@@ -303,7 +228,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
       const diffTime = Math.abs(now - extractedDate);
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       
-      console.log('Extracted date:', extractedDate, 'Days ago:', diffDays);
       
       if (diffDays === 0) {
         return 'Today';
@@ -322,7 +246,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
         return `${years} year${years > 1 ? 's' : ''} ago`;
       }
     } catch (error) {
-      console.log('Date parsing error:', error);
       return 'Recently';
     }
   };
@@ -422,7 +345,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
           {/* Back Navigation */}
           <button className="flex items-center space-x-2 text-gray-400 mb-8">
             <div className="p-2 rounded-lg bg-white/5">
-              <ChevronLeft size={20} />
             </div>
             <span className="font-medium">Back</span>
           </button>
@@ -523,7 +445,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
           className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors mb-8 group"
         >
           <div className="p-2 rounded-lg bg-white/5 group-hover:bg-white/10">
-            <ChevronLeft size={20} />
           </div>
           <span className="font-medium">Back</span>
         </button>
@@ -625,82 +546,57 @@ const Details = ({ manga, onBack, onChapterRead }) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
                   {chapters.length > 0 ? (
                     chapters.map((chapter) => {
                       const isRead = readChapters.has(chapter.id);
-                      const swipeState = swipeStates[chapter.id] || { isSwiping: false, startX: 0, currentX: 0 };
-                      const swipeDistance = swipeState.isSwiping ? swipeState.startX - swipeState.currentX : 0; // Changed for left swipe
-                      
-                      return (
-                        <div 
+                          
+                          return (
+                        <button
                           key={chapter.id}
                           onClick={() => handleChapterClick(chapter)}
-                          onTouchStart={(e) => handleSwipeStart(e, chapter)}
-                          onTouchMove={(e) => handleSwipeMove(e, chapter)}
-                          onTouchEnd={(e) => handleSwipeEnd(e, chapter)}
-                          className={`group flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all border relative overflow-hidden ${
-                            isRead 
-                              ? 'bg-green-600/10 border-green-500/30 hover:bg-green-600/20' 
-                              : 'bg-gray-900/40 hover:bg-blue-600/10 border-gray-800 hover:border-blue-500/50'
-                          }`}
-                          style={{
-                            transform: swipeState.isSwiping ? `translateX(-${Math.max(0, swipeDistance)}px)` : 'translateX(0)',
-                            transition: swipeState.isSwiping ? 'none' : 'transform 0.3s ease'
-                          }}
+                          className={`w-full bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 text-left hover:from-blue-900/30 hover:to-blue-800/30 hover:border-blue-600/50 transition-all duration-300 group backdrop-blur-sm ${isRead ? 'opacity-60' : ''}`}
                         >
-                          {/* Swipe overlay animation */}
-                          {swipeState.isSwiping && swipeDistance > 20 && (
-                            <div 
-                              className="absolute inset-0 bg-gradient-to-l from-transparent via-blue-500/10 to-blue-500/20 pointer-events-none"
-                              style={{ opacity: Math.min(swipeDistance / 100, 0.5) }}
-                            />
-                          )}
-                          
-                          
-                          <div className="flex items-center space-x-4">
-                            <div className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
-                              isRead 
-                                ? 'bg-green-600 text-white' 
-                                : 'bg-gray-800 group-hover:bg-blue-600 text-gray-400 group-hover:text-white'
-                            }`}>
-                              {isRead ? (
-                                <Book size={14} className="text-white" />
-                              ) : (
-                                <span className="text-xs font-black">#</span>
-                              )}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4 flex-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <h3 className={`font-bold text-base transition-colors truncate ${isRead
+                                      ? 'text-green-400 group-hover:text-green-300'
+                                      : 'text-white group-hover:text-blue-300'}`}>
+                                    {getChapterDisplayTitle(chapter)}
+                                  </h3>
+                                  {isRead && (
+                                    <span className="flex-shrink-0 text-xs bg-gradient-to-r from-green-600/20 to-green-500/20 text-green-400 px-2 py-1 rounded-full font-medium border border-green-600/30">
+                                      ✓ READ
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-3 text-xs">
+                                  <div className="flex items-center space-x-1 text-gray-500">
+                                    <Clock size={11} />
+                                    <span className="font-medium">
+                                      {getChapterDisplayDate(chapter)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className={`font-bold transition-colors ${
-                                isRead 
-                                  ? 'text-green-400 group-hover:text-green-300' 
-                                  : 'text-white group-hover:text-blue-400'
-                              }`}>
-                                {getChapterDisplayTitle(chapter)}
-                                {isRead && (
-                                  <span className="ml-2 text-xs bg-green-600/20 text-green-400 px-2 py-0.5 rounded-full font-medium">
-                                    READ
-                                  </span>
-                                )}
-                              </h3>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <Clock size={12} className="text-gray-600" />
-                                <span className="text-[11px] text-gray-500 font-medium">
-                                  {getChapterDisplayDate(chapter)}
-                                </span>
+                            <div className="flex items-center space-x-2 ml-4">
+                              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isRead 
+                                ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                                : 'bg-gray-600 group-hover:bg-blue-500 group-hover:shadow-lg group-hover:shadow-blue-500/50'}`}>
                               </div>
                             </div>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                              <ChevronLeft size={18} className="rotate-180 text-blue-500" />
-                          </div>
-                        </div>
+                        </button>
                       );
                     })
                   ) : (
-                    <div className="col-span-full py-16 text-center bg-gray-900/30 rounded-3xl border-2 border-dashed border-gray-800">
-                      <Book size={48} className="mx-auto text-gray-700 mb-4 opacity-20" />
-                      <p className="text-gray-500 font-medium tracking-wide">No chapters have been indexed yet.</p>
+                    <div className="py-16 text-center bg-gradient-to-br from-gray-900/50 to-gray-800/30 rounded-3xl border-2 border-dashed border-gray-700 backdrop-blur-sm">
+                      <Book size={48} className="mx-auto text-gray-600 mb-4 opacity-30" />
+                      <p className="text-gray-400 font-medium tracking-wide mb-2">No chapters available</p>
+                      <p className="text-gray-500 text-sm">Chapters will appear here once they're indexed</p>
                     </div>
                   )}
                 </div>
