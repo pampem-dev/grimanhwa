@@ -22,7 +22,7 @@ const LazyImage = ({ src, alt, className, style, priority = false }) => {
           observer.disconnect();
         }
       },
-      { threshold: 0.01, rootMargin: '1200px' } // Larger margin for earlier loading
+      { threshold: 0.01, rootMargin: '2000px' } // Much larger margin for ultra-early loading
     );
     if (imgRef.current) observer.observe(imgRef.current);
     return () => observer.disconnect();
@@ -38,12 +38,12 @@ const LazyImage = ({ src, alt, className, style, priority = false }) => {
           style={style}
           onLoad={() => setIsLoaded(true)}
           onError={() => setError(true)}
-          loading="lazy"
+          loading="eager" // Load immediately when in view
           decoding="async"
         />
       )}
       {(!isLoaded || !isInView) && !error && (
-        <div className="bg-gray-900/40 animate-pulse w-full max-w-[900px]" style={{ ...style, minHeight: '600px' }} />
+        <div className="bg-gray-900/40 animate-pulse w-full max-w-[900px]" style={{ ...style, minHeight: '400px' }} />
       )}
     </div>
   );
@@ -114,13 +114,16 @@ const Reader = ({ chapterId, onExit }) => {
         setLoadedIds((prev) => new Set(prev).add(id));
         writeChapterCache(id, { pages: data.pages, chapterNum });
 
-        // --- SMART PRE-FETCH LOGIC ---
-        // Only pre-fetch if not already loading and not too many chapters loaded
-        if (!isPreload && chapters.length < 3) {
-          const nextId = id.replace(/chapter\/\d+/i, `chapter/${chapterNum + 1}`);
-          setTimeout(() => {
-            fetchChapter(nextId, true);
-          }, 2000); // Faster pre-fetch
+        // --- AGGRESSIVE PRE-FETCH LOGIC ---
+        // Pre-fetch multiple chapters ahead for seamless reading
+        if (!isPreload && chapters.length < 5) {
+          // Pre-fetch next 2 chapters
+          for (let i = 1; i <= 2; i++) {
+            const nextId = id.replace(/chapter\/\d+/i, `chapter/${chapterNum + i}`);
+            setTimeout(() => {
+              fetchChapter(nextId, true);
+            }, i * 1000); // Stagger pre-fetches
+          }
         }
       }
     } catch (err) {
@@ -138,21 +141,23 @@ const Reader = ({ chapterId, onExit }) => {
     if (chapterId && chapters.length === 0) fetchChapter(chapterId); 
   }, [chapterId, fetchChapter, chapters.length]);
 
-  // OPTIMIZED: Better observer with larger margin for earlier loading
+  // ULTRA-OPTIMIZED: Aggressive observer for seamless loading
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && !isLoadingNext && chapters.length > 0) {
           const last = chapters[chapters.length - 1];
-          const nextId = last.id.replace(/chapter\/\d+/i, `chapter/${last.chapterNum + 1}`);
           
-          // Only load next chapter if we don't have too many already
-          if (!loadedIds.has(nextId) && chapters.length < 4) {
-            fetchChapter(nextId, false);
+          // Pre-fetch multiple chapters ahead
+          for (let i = 1; i <= 3; i++) {
+            const nextId = last.id.replace(/chapter\/\d+/i, `chapter/${last.chapterNum + i}`);
+            if (!loadedIds.has(nextId) && chapters.length < 6) {
+              fetchChapter(nextId, i > 1); // Only show spinner for immediate next chapter
+            }
           }
         }
       },
-      { threshold: 0.1, rootMargin: '1200px' } // Earlier trigger
+      { threshold: 0.1, rootMargin: '3000px' } // Ultra-early trigger
     );
     if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
@@ -209,7 +214,7 @@ const Reader = ({ chapterId, onExit }) => {
                   src={url} 
                   className="w-full" 
                   style={{ marginBottom: '-1px' }} 
-                  priority={index < 3} // Load first 3 images immediately
+                  priority={index < 5} // Load first 5 images immediately
                 />
               ))}
             </div>
