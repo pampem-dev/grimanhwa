@@ -300,7 +300,13 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for web scraping
       
-      const response = await fetch(apiUrl, { signal: controller.signal });
+      const response = await fetch(apiUrl, { 
+        signal: controller.signal,
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
       clearTimeout(timeoutId);
       
       console.log('Fetch response status:', response.status);
