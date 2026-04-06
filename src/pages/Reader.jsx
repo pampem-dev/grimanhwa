@@ -105,10 +105,20 @@ const Reader = ({ chapterId, onExit }) => {
     if (!isPreload) setIsLoadingNext(true);
 
     try {
-      const response = await fetchWithRetry(API_ENDPOINTS.CHAPTER(id));
+      const apiUrl = API_ENDPOINTS.CHAPTER(id);
+      console.log('🔍 Fetching chapter:', apiUrl);
+      
+      const response = await fetchWithRetry(apiUrl);
+      console.log('🔍 Response status:', response.status);
+      
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
+      console.log('🔍 Chapter data received:', { 
+        pages: data.pages?.length, 
+        firstPageUrl: data.pages?.[0] 
+      });
+      
       if (data.pages?.length > 0) {
         const chapterNum = getChapterNumber(id);
         

@@ -1,6 +1,10 @@
 // Central API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
+// Debug: Log the API URL to check if it's set correctly
+console.log('🔍 API_BASE_URL:', API_BASE_URL);
+console.log('🔍 Environment variables:', process.env);
+
 //url for prod
 //  process.env.REACT_APP_API_URL ||
 
@@ -22,7 +26,7 @@ export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for production
       
       const response = await fetch(url, {
         ...options,
