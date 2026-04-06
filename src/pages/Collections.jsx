@@ -187,7 +187,6 @@ const debounce = (func, wait) => {
     
     if (itemsToFetch.length === 0) return;
     
-    console.log(`Fetching basic info for ${itemsToFetch.length} manga on page ${currentPage}`);
     
     // Fetch in larger batches for better performance
     const batchSize = 6; // Increased from 3 to 6 for fewer API calls
@@ -229,7 +228,6 @@ const debounce = (func, wait) => {
     if (!forceRefresh) {
       const persistentCache = getPersistentCache(cacheKey);
       if (persistentCache) {
-        console.log('Collections: Using persistent cached data');
         setAllManga(persistentCache.allManga);
         
         // Also store in memory cache for this session
@@ -260,7 +258,6 @@ const debounce = (func, wait) => {
       
       // Use the new browse-all endpoint to get all manga from all pages
       const apiUrl = API_ENDPOINTS.BROWSE_ALL;
-      console.log('Collections: Fetching all manga from browse-all endpoint:', apiUrl);
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
@@ -277,9 +274,6 @@ const debounce = (func, wait) => {
           throw new Error('No manga data received from Collections API');
         }
         
-        console.log('Collections - Total manga fetched:', mangaList.length);
-        console.log('Collections - Total pages:', data.total_pages);
-        console.log('Collections - First few manga:', mangaList.slice(0, 3).map(m => ({ title: m.title, id: m.id })));
         
         setAllManga(mangaList);
         

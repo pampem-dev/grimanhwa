@@ -55,6 +55,8 @@ const Reader = ({ chapterId, onExit }) => {
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState(null);
   const [failedIds, setFailedIds] = useState(() => new Set());
+  const [showControls, setShowControls] = useState(false); // Start with controls hidden
+  const [hasReachedEnd, setHasReachedEnd] = useState(false);
   
   const scrollContainerRef = useRef(null);
   const observerTarget = useRef(null);
@@ -125,9 +127,18 @@ const Reader = ({ chapterId, onExit }) => {
             }, i * 1000); // Stagger pre-fetches
           }
         }
+      } else {
+        // Handle empty response - treat as end of content
+        if (!isPreload) {
+          setHasReachedEnd(true);
+        }
       }
     } catch (err) {
       console.error("Fetch failed:", err);
+      // Check if this is a 404, indicating no more chapters
+      if (err.message.includes('Status: 404') && !isPreload) {
+        setHasReachedEnd(true);
+      }
       // Don't immediately mark as failed - allow retries
       if (!isPreload) {
         setFailedIds((prev) => new Set(prev).add(id));
@@ -145,7 +156,7 @@ const Reader = ({ chapterId, onExit }) => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
-        if (entries[0].isIntersecting && !isLoadingNext && chapters.length > 0) {
+        if (entries[0].isIntersecting && !isLoadingNext && chapters.length > 0 && !hasReachedEnd) {
           const last = chapters[chapters.length - 1];
           
           // Pre-fetch multiple chapters ahead
@@ -161,7 +172,7 @@ const Reader = ({ chapterId, onExit }) => {
     );
     if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
-  }, [chapters, isLoadingNext, fetchChapter, loadedIds]);
+  }, [chapters, isLoadingNext, fetchChapter, loadedIds, hasReachedEnd]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -228,22 +239,47 @@ const Reader = ({ chapterId, onExit }) => {
               <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-600">Loading Chapter</p>
             </div>
           )}
+          {hasReachedEnd && !isLoadingNext && (
+            <div className="flex flex-col items-center space-y-4">
+              <div className="w-16 h-px bg-gray-800" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-500">No Next Chapter</p>
+              <div className="w-16 h-px bg-gray-800" />
+            </div>
+          )}
         </div>
       </div>
       
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-[110]">
-        <button 
-          onClick={scrollToCurrentChapter}
-          className="group p-3.5 rounded-2xl bg-gray-900/90 backdrop-blur-md border border-white/5 text-gray-400 hover:text-white transition-all shadow-2xl active:scale-90"
-        >
-          <ArrowUp size={20} />
-        </button>
-        <button 
-          onClick={onExit}
-          className="p-3.5 rounded-2xl bg-gray-900/90 backdrop-blur-md border border-white/5 text-gray-400 hover:text-red-500 transition-all shadow-2xl active:scale-90"
-        >
-          <X size={20} />
-        </button>
+      <div className="fixed bottom-6 right-6 z-[110]">
+        {/* Peek button - always visible but tiny */}
+        <div className="relative group">
+          <button 
+            onClick={() => setShowControls(!showControls)}
+            className="w-8 h-8 bg-gray-800/20 backdrop-blur-sm rounded-full border border-gray-700/30 flex items-center justify-center opacity-40 hover:opacity-80 transition-all duration-200"
+            aria-label="Toggle controls"
+          >
+            <div className="w-1.5 h-1.5 bg-white/80 rounded-full"></div>
+          </button>
+          
+          {/* Hidden buttons that appear on click and when controls are enabled */}
+          {showControls && (
+            <div className="absolute bottom-10 right-0 flex flex-col gap-3 opacity-100 transition-opacity duration-300 pointer-events-auto">
+              <button 
+                onClick={scrollToCurrentChapter}
+                className="p-3.5 rounded-2xl bg-gray-900/20 backdrop-blur-md border border-gray-700/20 text-white/60 hover:text-white transition-all shadow-2xl active:scale-90 whitespace-nowrap"
+                aria-label="Scroll to current chapter"
+              >
+                <ArrowUp size={20} />
+              </button>
+              <button 
+                onClick={onExit}
+                className="p-3.5 rounded-2xl bg-gray-900/20 backdrop-blur-md border border-gray-700/20 text-white/60 hover:text-red-500 transition-all shadow-2xl active:scale-90"
+                aria-label="Exit reader"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

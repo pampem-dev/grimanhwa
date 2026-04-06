@@ -255,7 +255,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     if (!forceRefresh) {
       const persistentCache = getPersistentCache(cacheKey);
       if (persistentCache) {
-        console.log('Using persistent cached data');
+        console.log('Using cached data');
         const { allManga, featured, trending, recent, recommended, manhwa } = persistentCache;
         setAllMangaList(allManga);
         setFeaturedManga(featured);
@@ -288,13 +288,13 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     }
 
     try {
-      console.log('Starting fresh manga fetch...');
+      // console.log('Starting fresh manga fetch...');
       setFetchError(null);
       if (forceRefresh) setIsRefreshing(true);
       
       // Always use backend API from environment
       const apiUrl = API_ENDPOINTS.SEARCH('a');
-      console.log('Using API URL:', apiUrl);
+      // console.log('Using API URL:', apiUrl);
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
@@ -309,11 +309,11 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       });
       clearTimeout(timeoutId);
       
-      console.log('Fetch response status:', response.status);
+      // console.log('Fetch response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('API response data:', data);
+        // console.log('API response data:', data);
         const allManga = getMangaList(data);
         
         if (allManga.length === 0) {

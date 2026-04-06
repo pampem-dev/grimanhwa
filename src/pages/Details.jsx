@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Book, Clock, Star, 
-  Play, Info, List, Lock
-} from 'lucide-react';
+import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 const Details = ({ manga, onBack, onChapterRead }) => {
@@ -125,57 +122,99 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
   // --- Logic remains unchanged ---
   const getChapterDisplayTitle = (chapter) => {
-    if (chapter?.chapter_num) {
-      const num = String(chapter.chapter_num);
-      if (num.length > 3) return `Chapter ${num.slice(0, 3)}`;
-      return `Chapter ${num}`;
+    // Primary: Use the number field from backend if available
+    if (chapter?.number) {
+      return `Chapter ${chapter.number}`;
     }
+    
+    // Secondary: Extract from URL since titles are malformed with time text
+    const urlMatch = chapter?.id?.match(/chapter\/(\d+)/);
+    if (urlMatch?.[1]) {
+      return `Chapter ${urlMatch[1]}`;
+    }
+    
+    // Tertiary: Try title extraction with strict patterns
     const title = chapter?.title || '';
-    const match = title.match(/chapter\s*(\d+)/i);
-    if (match?.[1]) {
-      let num = match[1];
-      if (num.length > 3) num = num.slice(0, 3);
-      return `Chapter ${num}`;
+    
+    // Look for "Chapter X" followed by non-digit
+    const chapterMatch = title.match(/chapter\s*(\d{1,3})(?!\d)/i);
+    if (chapterMatch?.[1]) {
+      return `Chapter ${chapterMatch[1]}`;
     }
-    const numberMatch = title.match(/(\d+)/);
-    if (numberMatch?.[1]) return `Chapter ${numberMatch[1]}`;
+    
+    // Look for "Ch. X" followed by non-digit  
+    const chMatch = title.match(/ch\.?\s*(\d{1,3})(?!\d)/i);
+    if (chMatch?.[1]) {
+      return `Chapter ${chMatch[1]}`;
+    }
+    
     return 'Chapter 1';
   };
 
   const getChapterDisplayDate = (chapter) => {
     
     if (chapter?.created_at) {
-      const chapterDate = new Date(chapter.created_at);
-      const now = new Date();
-      const diffTime = Math.abs(now - chapterDate);
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-      const diffMinutes = Math.floor(diffTime / (1000 * 60));
-      
-      if (diffMinutes < 1) {
-        return 'Just now';
-      } else if (diffMinutes < 60) {
-        return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
-      } else if (diffHours < 24) {
-        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-      } else if (diffDays === 1) {
-        return 'Yesterday';
-      } else if (diffDays < 7) {
-        return `${diffDays} days ago`;
-      } else if (diffDays < 30) {
-        const weeks = Math.floor(diffDays / 7);
-        return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
-      } else if (diffDays < 365) {
-        const months = Math.floor(diffDays / 30);
-        return `${months} month${months > 1 ? 's' : ''} ago`;
-      } else {
-        const years = Math.floor(diffDays / 365);
-        return `${years} year${years > 1 ? 's' : ''} ago`;
+      try {
+        const chapterDate = new Date(chapter.created_at);
+        const now = new Date();
+        
+        // Validate the date is reasonable (not in future, not too old)
+        if (isNaN(chapterDate.getTime())) {
+          throw new Error('Invalid date');
+        }
+        
+        // Check if date is more than 1 day in future (likely invalid data)
+        const diffTime = chapterDate.getTime() - now.getTime();
+        if (diffTime > 24 * 60 * 60 * 1000) {
+          throw new Error('Future date');
+        }
+        
+        // Calculate time difference
+        const absDiffTime = Math.abs(now - chapterDate);
+        const diffDays = Math.floor(absDiffTime / (1000 * 60 * 60 * 24));
+        const diffHours = Math.floor(absDiffTime / (1000 * 60 * 60));
+        const diffMinutes = Math.floor(absDiffTime / (1000 * 60));
+        
+        if (diffMinutes < 1) {
+          return 'Just now';
+        } else if (diffMinutes < 60) {
+          return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+        } else if (diffHours < 24) {
+          return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+        } else if (diffDays === 1) {
+          return 'Yesterday';
+        } else if (diffDays < 7) {
+          return `${diffDays} days ago`;
+        } else if (diffDays < 30) {
+          const weeks = Math.floor(diffDays / 7);
+          return `${weeks} week${weeks > 1 ? 's' : ''} ago`;
+        } else if (diffDays < 365) {
+          const months = Math.floor(diffDays / 30);
+          return `${months} month${months > 1 ? 's' : ''} ago`;
+        } else {
+          const years = Math.floor(diffDays / 365);
+          return `${years} year${years > 1 ? 's' : ''} ago`;
+        }
+      } catch (error) {
+        // If date parsing fails, fall back to title extraction
       }
     }
     
     // Fallback: try to extract date from title
-    const title = chapter?.title || '';
+    // Some sites concatenate chapter number + relative time, e.g. "Chapter783 days ago"
+    // In those cases we must strip the chapter prefix first, otherwise we'll parse "783 days ago".
+    const rawTitle = chapter?.title || '';
+    const n = extractChapterNumber(chapter);
+    const chapterNumStr = n ? String(n).replace(/\.0$/, '') : '';
+
+    let title = rawTitle;
+    if (chapterNumStr) {
+      const escaped = chapterNumStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      title = title.replace(new RegExp(`^\\s*(?:chapter|ch\\.?)\\s*${escaped}`, 'i'), '');
+    }
+    // Generic cleanup if chapter number isn't available or prefix is malformed
+    title = title.replace(/^\s*(?:chapter|ch\.?)[\s\-:]*\d+(?:\.\d+)?/i, '');
+    title = title.trim();
     
     // First, check if title already contains relative time expressions
     const relativeTimePatterns = [
@@ -256,15 +295,50 @@ const Details = ({ manga, onBack, onChapterRead }) => {
   };
 
   const extractChapterNumber = (ch) => {
-    let num = ch.chapter_num;
-    if (!num) {
-      const match = ch.title?.match(/chapter\s*(\d+(\.\d+)?)/i);
-      num = match?.[1];
+    // Primary: Use the number field from backend (most reliable)
+    if (ch.number) {
+      const n = parseFloat(ch.number);
+      return Number.isFinite(n) ? n : 0;
     }
-    if (!num) return 0;
-    num = String(num);
-    if (num.length > 3) num = num.slice(0, 3);
-    return parseFloat(num);
+    
+    // Secondary: Extract from URL since titles are malformed
+    const urlMatch = ch.id?.match(/chapter\/(\d+)/);
+    if (urlMatch?.[1]) {
+      const n = parseFloat(urlMatch[1]);
+      return Number.isFinite(n) ? n : 0;
+    }
+    
+    // Tertiary: Try chapter_num field
+    if (ch.chapter_num) {
+      const n = parseFloat(ch.chapter_num);
+      return Number.isFinite(n) ? n : 0;
+    }
+    
+    // Last resort: Try title parsing
+    const match = ch.title?.match(/chapter\s*(\d+(\.\d+)?)/i);
+    if (match?.[1]) {
+      const n = parseFloat(match[1]);
+      return Number.isFinite(n) ? n : 0;
+    }
+    
+    return 0;
+  };
+
+  const sortChapters = (chs) => {
+    const list = Array.isArray(chs) ? [...chs] : [];
+    list.sort((a, b) => {
+      const bn = extractChapterNumber(b);
+      const an = extractChapterNumber(a);
+
+      if (bn !== an) return bn - an;
+
+      const bt = b?.created_at ? new Date(b.created_at).getTime() : 0;
+      const at = a?.created_at ? new Date(a.created_at).getTime() : 0;
+      if (bt !== at) return bt - at;
+
+      return String(b?.id || '').localeCompare(String(a?.id || ''));
+    });
+    return list;
   };
 
   useEffect(() => {
@@ -274,7 +348,21 @@ const Details = ({ manga, onBack, onChapterRead }) => {
   useEffect(() => {
     if (!manga?.id) return;
 
-    // Fast path: hydrate from cache for instant UI
+    // OPTIMIZATION: Use existing manga data first, no immediate API call
+    if (manga.chapters && manga.chapters.length > 0) {
+      setChapters(manga.chapters);
+      setLoading(false);
+      
+      // Cache the existing data
+      writeDetailsCache(manga.id, {
+        description: manga.description,
+        status: manga.status,
+        chapters: manga.chapters
+      });
+      return;
+    }
+
+    // Only check cache if no existing data
     const cached = readDetailsCache(manga.id);
     if (cached) {
       setMangaDetails((prev) => ({
@@ -301,7 +389,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
             description: cached.description || prev.description,
             status: cached.status || prev.status,
           }));
-          setChapters(cached.chapters);
+          setChapters(sortChapters(cached.chapters));
           setLoading(false);
           return;
         }
@@ -309,20 +397,28 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
       // OPTIMIZATION: Check if we already have chapters from Home page navigation
       if (manga.chapters && manga.chapters.length > 0 && !forceRefresh) {
-        console.log('Using existing chapters data from navigation');
-        setChapters(manga.chapters);
+        const sorted = sortChapters(manga.chapters);
+        setChapters(sorted);
         setLoading(false);
         
         // Cache the existing data for future use
         writeDetailsCache(manga.id, {
           description: manga.description,
           status: manga.status,
-          chapters: manga.chapters
+          chapters: sorted
         });
         return;
       }
 
-      const response = await fetch(API_ENDPOINTS.MANGA(manga.id));
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), 45000) // 45s timeout for Selenium scraping
+      );
+
+      const response = await Promise.race([
+        fetch(API_ENDPOINTS.MANGA(manga.id)),
+        timeoutPromise
+      ]);
       if (response.ok) {
         let chaptersData = await response.json();
         setMangaDetails(prev => ({
@@ -337,17 +433,36 @@ const Details = ({ manga, onBack, onChapterRead }) => {
           seen.add(key);
           return true;
         });
-        uniqueChapters.sort((a, b) => extractChapterNumber(b) - extractChapterNumber(a));
-        setChapters(uniqueChapters);
+        const sorted = sortChapters(uniqueChapters);
+        setChapters(sorted);
 
         writeDetailsCache(manga.id, {
           description: chaptersData.description,
           status: chaptersData.status,
-          chapters: uniqueChapters,
+          chapters: sorted,
         });
       }
     } catch (err) {
       console.error("Chapters fetch error:", err);
+      
+      // FALLBACK: Try to use any cached data even if expired
+      const fallbackCache = readDetailsCache(manga.id, true); // Ignore TTL
+      if (fallbackCache && fallbackCache.chapters) {
+        setChapters(sortChapters(fallbackCache.chapters));
+        setMangaDetails(prev => ({
+          ...prev,
+          description: fallbackCache.description || prev.description,
+          status: fallbackCache.status || prev.status,
+        }));
+      } else {
+        // If no cache at all, show empty state instead of infinite loading
+        setChapters([]);
+        setMangaDetails(prev => ({
+          ...prev,
+          description: prev.description || 'No description available',
+          status: 'Unknown'
+        }));
+      }
     } finally {
       setLoading(false);
     }
@@ -358,9 +473,11 @@ const Details = ({ manga, onBack, onChapterRead }) => {
       <div className="min-h-screen bg-black text-white p-6 sm:p-10">
         <div className="max-w-[1600px] mx-auto">
           {/* Back Navigation */}
-          <button className="flex items-center space-x-2 text-gray-400 mb-8">
-            <div className="p-2 rounded-lg bg-white/5">
-            </div>
+          <button 
+            onClick={onBack}
+            className="flex items-center space-x-2 text-gray-400 mb-8 hover:text-white transition-colors duration-200"
+          >
+            <ChevronLeft size={20} />
             <span className="font-medium">Back</span>
           </button>
 
@@ -459,8 +576,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
           onClick={onBack}
           className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors mb-8 group"
         >
-          <div className="p-2 rounded-lg bg-white/5 group-hover:bg-white/10">
-          </div>
+          <ChevronLeft size={20} />
           <span className="font-medium">Back</span>
         </button>
 
@@ -563,81 +679,59 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
                 <div className="space-y-2">
                   {chapters.length > 0 ? (
-                    chapters.map((chapter) => {
-                      const isRead = readChapters.has(chapter.id);
-                      const isLocked = chapter.is_locked || false;
-                          
-                          return (
-                        <button
-                          key={chapter.id}
-                          onClick={() => !isLocked && handleChapterClick(chapter)}
-                          disabled={isLocked}
-                          className={`w-full bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 text-left hover:from-blue-900/30 hover:to-blue-800/30 hover:border-blue-600/50 transition-all duration-300 group backdrop-blur-sm relative overflow-hidden ${
-                            isRead ? 'opacity-60' : ''
-                          } ${
-                            isLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-                          }`}
-                        >
-                          {/* Lock overlay for locked chapters */}
-                          {isLocked && (
-                            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center">
-                              <div className="flex flex-col items-center space-y-2">
-                                <Lock size={24} className="text-yellow-400" />
-                                <span className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Premium</span>
-                                <span className="text-xs text-gray-300">Join to unlock</span>
-                              </div>
-                            </div>
-                          )}
-                          
-                          <div className={`flex items-center justify-between ${isLocked ? 'blur-sm' : ''}`}>
-                            <div className="flex items-center space-x-4 flex-1">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className={`font-bold text-base transition-colors truncate ${
-                                    isRead
-                                      ? 'text-green-400 group-hover:text-green-300'
-                                      : isLocked
-                                      ? 'text-gray-400'
-                                      : 'text-white group-hover:text-blue-300'
-                                  }`}>
-                                    {getChapterDisplayTitle(chapter)}
-                                  </h3>
-                                  {isRead && (
-                                    <span className="flex-shrink-0 text-xs bg-gradient-to-r from-green-600/20 to-green-500/20 text-green-400 px-2 py-1 rounded-full font-medium border border-green-600/30">
-                                      ✓ READ
-                                    </span>
-                                  )}
-                                  {isLocked && (
-                                    <span className="flex-shrink-0 text-xs bg-gradient-to-r from-yellow-600/20 to-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full font-medium border border-yellow-600/30 flex items-center space-x-1">
-                                      <Lock size={10} />
-                                      <span>LOCKED</span>
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-3 text-xs">
-                                  <div className={`flex items-center space-x-1 ${isLocked ? 'text-gray-500' : 'text-gray-500'}`}>
-                                    <Clock size={11} />
-                                    <span className="font-medium">
-                                      {getChapterDisplayDate(chapter)}
-                                    </span>
+                    <>
+                      {/* Show all chapters */}
+                      {chapters.map((chapter) => {
+                        const isRead = readChapters.has(chapter.id);
+                            
+                        return (
+                          <button
+                            key={chapter.id}
+                            onClick={() => handleChapterClick(chapter)}
+                            className={`w-full bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 text-left hover:from-blue-900/30 hover:to-blue-800/30 hover:border-blue-600/50 transition-all duration-300 group backdrop-blur-sm relative overflow-hidden ${
+                              isRead ? 'opacity-60' : ''
+                            } cursor-pointer`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <h3 className={`font-bold text-base transition-colors truncate ${
+                                      isRead
+                                        ? 'text-green-400 group-hover:text-green-300'
+                                        : 'text-white group-hover:text-blue-300'
+                                    }`}>
+                                      {getChapterDisplayTitle(chapter)}
+                                    </h3>
+                                    {isRead && (
+                                      <span className="flex-shrink-0 text-xs bg-gradient-to-r from-green-600/20 to-green-500/20 text-green-400 px-2 py-1 rounded-full font-medium border border-green-600/30">
+                                        ✓ READ
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center space-x-3 text-xs">
+                                    <div className="flex items-center space-x-1 text-gray-500">
+                                      <Clock size={11} />
+                                      <span className="font-medium">
+                                        {getChapterDisplayDate(chapter)}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center space-x-2 ml-4">
-                              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                isRead 
-                                  ? 'bg-green-500 shadow-lg shadow-green-500/50' 
-                                  : isLocked
-                                  ? 'bg-yellow-500 shadow-lg shadow-yellow-500/50'
-                                  : 'bg-gray-600 group-hover:bg-blue-500 group-hover:shadow-lg group-hover:shadow-blue-500/50'
-                              }`}>
+                              <div className="flex items-center space-x-2 ml-4">
+                                <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                  isRead 
+                                    ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                                    : 'bg-gray-600 group-hover:bg-blue-500 group-hover:shadow-lg group-hover:shadow-blue-500/50'
+                                }`}>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </button>
-                      );
-                    })
+                          </button>
+                        );
+                      })}
+                    </>
                   ) : (
                     <div className="py-16 text-center bg-gradient-to-br from-gray-900/50 to-gray-800/30 rounded-3xl border-2 border-dashed border-gray-700 backdrop-blur-sm">
                       <Book size={48} className="mx-auto text-gray-600 mb-4 opacity-30" />
