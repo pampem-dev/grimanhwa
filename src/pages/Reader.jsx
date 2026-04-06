@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Loader2, ArrowUp, X } from 'lucide-react';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, fetchWithRetry } from '../config/api';
 
 const LazyImage = ({ src, alt, className, style, priority = false }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -103,7 +103,7 @@ const Reader = ({ chapterId, onExit }) => {
     if (!isPreload) setIsLoadingNext(true);
 
     try {
-      const response = await fetch(API_ENDPOINTS.CHAPTER(id));
+      const response = await fetchWithRetry(API_ENDPOINTS.CHAPTER(id));
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
