@@ -172,7 +172,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-            <h1 className="text-3xl font-bold text-white">My Library</h1>
+            <h1 className="text-3xl font-bold text-white">Library</h1>
           </div>
 
           {/* Loading Skeleton Grid */}
