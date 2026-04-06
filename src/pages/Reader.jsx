@@ -29,7 +29,7 @@ const LazyImage = ({ src, alt, className, style, priority = false }) => {
   }, [priority]);
 
   return (
-    <div ref={imgRef} className="relative w-full flex justify-center bg-black overflow-hidden">
+    <div ref={imgRef} className="relative w-full flex justify-center bg-[#050505] overflow-hidden">
       {isInView && !error && (
         <img
           src={src}
@@ -202,7 +202,7 @@ const Reader = ({ chapterId, onExit }) => {
       className="fixed inset-0 bg-[#050505] overflow-y-auto overflow-x-hidden z-[100] scroll-smooth"
     >
       <div className="flex flex-col items-center w-full px-0 md:px-4">
-        <div className="w-full max-w-[900px] bg-black shadow-2xl">
+        <div className="w-full max-w-[900px] bg-[#050505] shadow-2xl">
           {chapters.map((chapter) => (
             <div key={`group-${chapter.id}`} className="w-full flex flex-col items-center">
               <div 

@@ -66,7 +66,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 sm:p-10">
+    <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">

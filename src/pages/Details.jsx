@@ -470,7 +470,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black text-white p-6 sm:p-10">
+      <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
         <div className="max-w-[1600px] mx-auto">
           {/* Back Navigation */}
           <button 
@@ -569,7 +569,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     : "bg-blue-500/10 text-blue-400 border-blue-500/20";
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 sm:p-10">
+    <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
       <div className="max-w-[1600px] mx-auto">
         {/* Back Navigation */}
         <button 

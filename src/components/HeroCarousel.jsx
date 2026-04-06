@@ -1,9 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 
 const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
   const scrollRef = useRef(null);
+  const containerRef = useRef(null);
 
   const scrollToIndex = (index) => {
     const { current } = scrollRef;
@@ -26,6 +30,97 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
     setCurrentIndex(index);
     onMangaClick(item);
   };
+
+  // Drag handlers
+  const handleDragStart = (clientX) => {
+    setIsDragging(true);
+    setDragStartX(clientX);
+    setDragOffset(0);
+  };
+
+  const handleDragMove = (clientX) => {
+    if (!isDragging) return;
+    
+    const deltaX = clientX - dragStartX;
+    setDragOffset(deltaX);
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging) return;
+    
+    const dragThreshold = 50; // Minimum drag distance to trigger navigation
+    
+    if (Math.abs(dragOffset) > dragThreshold) {
+      if (dragOffset > 0 && currentIndex > 0) {
+        // Dragged right - go to previous
+        setCurrentIndex(currentIndex - 1);
+        scrollToIndex(currentIndex - 1);
+      } else if (dragOffset < 0 && currentIndex < manga.length - 1) {
+        // Dragged left - go to next
+        setCurrentIndex(currentIndex + 1);
+        scrollToIndex(currentIndex + 1);
+      }
+    }
+    
+    setIsDragging(false);
+    setDragOffset(0);
+  };
+
+  // Mouse events
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    handleDragStart(e.clientX);
+  };
+
+  const handleMouseMove = (e) => {
+    handleDragMove(e.clientX);
+  };
+
+  const handleMouseUp = () => {
+    handleDragEnd();
+  };
+
+  // Touch events
+  const handleTouchStart = (e) => {
+    e.preventDefault(); // Prevent page scroll
+    handleDragStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    if (isDragging) {
+      e.preventDefault(); // Prevent page scroll during drag
+    }
+    handleDragMove(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    handleDragEnd();
+  };
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    const handleGlobalMouseMove = (e) => {
+      if (isDragging) {
+        handleMouseMove(e);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (isDragging) {
+        handleMouseUp();
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, dragStartX]);
 
   if (isLoading) {
     return (
@@ -56,7 +151,18 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
   if (!manga || manga.length === 0) return null;
 
   return (
-    <div className="relative w-full bg-[#050505] overflow-hidden group/carousel">
+    <div 
+      ref={containerRef}
+      className="relative w-full bg-[#050505] overflow-hidden group/carousel select-none"
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ 
+        cursor: isDragging ? 'grabbing' : 'grab',
+        touchAction: 'none' // Prevent all touch actions including scroll
+      }}
+    >
 
       {/* 🎯 CENTERED ITEM DISPLAY */}
       <div 
@@ -66,7 +172,7 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
         {manga.map((item, index) => (
           <div 
             key={item.id}
-            onClick={() => handleItemClick(item, index)}
+            onClick={() => !isDragging && handleItemClick(item, index)}
             className={`absolute flex-shrink-0 w-[300px] md:w-[400px] transition-all duration-500 ease-out cursor-pointer group ${
               index === currentIndex 
                 ? 'scale-100 opacity-100 z-20 translate-x-0' 
@@ -76,6 +182,11 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
                     ? 'scale-75 opacity-50 z-10 translate-x-1/2'
                     : 'scale-0 opacity-0 z-0'
             }`}
+            style={{
+              transform: isDragging && index === currentIndex 
+                ? `translateX(${dragOffset * 0.3}px)` 
+                : undefined
+            }}
           >
             {/* Rating Tag (Top Left) */}
             <div className="absolute top-2 left-2 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">

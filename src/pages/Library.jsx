@@ -93,7 +93,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
                   e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
                 }}
               />
-              {/* <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1 border border-white/10">
+              {/* <div className="absolute top-2 left-2 bg-[#050505]/80 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1 border border-white/10">
                 <Star size={10} className="text-yellow-400" fill="currentColor" />
                 <span className="text-[10px] font-bold text-white">{extractRating(manga.title)}</span>
               </div> */}
@@ -139,7 +139,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
                   e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
                 }}
               />
-              {/* <div className="absolute top-1 left-1 bg-black/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
+              {/* <div className="absolute top-1 left-1 bg-[#050505]/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
                 {extractRating(manga.title)}
               </div> */}
             </div>
@@ -168,7 +168,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black p-6">
+      <div className="min-h-screen bg-[#050505] p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -194,10 +194,10 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
   }
 
   return (
-    <div className="min-h-screen bg-black p-6">
+    <div className="min-h-screen bg-[#050505] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white">My Library</h1>
           <div className="text-sm text-gray-400">
             {searchQuery ? 

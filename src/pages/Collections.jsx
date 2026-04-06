@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Book, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 
@@ -386,7 +386,7 @@ const debounce = (func, wait) => {
                   e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
                 }}
               />
-              {/* <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1 border border-white/10">
+              {/* <div className="absolute top-2 left-2 bg-[#050505]/80 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1 border border-white/10">
                 <Star size={10} className="text-yellow-400" fill="currentColor" />
                 <span className="text-[10px] font-bold text-white">{extractRating(manga.title)}</span>
               </div> */}
@@ -422,7 +422,7 @@ const debounce = (func, wait) => {
                   e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
                 }}
               />
-              {/* <div className="absolute top-1 left-1 bg-black/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
+              {/* <div className="absolute top-1 left-1 bg-[#050505]/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
                 {extractRating(manga.title)}
               </div> */}
             </div>
@@ -439,7 +439,7 @@ const debounce = (func, wait) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black p-6">
+      <div className="min-h-screen bg-[#050505] p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -465,7 +465,7 @@ const debounce = (func, wait) => {
   }
 
   return (
-    <div className="min-h-screen bg-black p-6">
+    <div className="min-h-screen bg-[#050505] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Error Handling */}
         {fetchError && (
@@ -485,25 +485,8 @@ const debounce = (func, wait) => {
           </div>
         )}
 
-        {/* Refresh Button */}
-        <div className="fixed top-4 right-4 z-50">
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className={`p-3 rounded-full transition-all ${
-              isRefreshing 
-                ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-            title="Refresh collections"
-          >
-            <svg className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-        </div>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white">Collections</h1>
           <div className="text-sm text-gray-400">
             {searchQuery ? 
@@ -518,13 +501,13 @@ const debounce = (func, wait) => {
           {/* Search */}
           <div className="flex-1 max-w-md">
             <div className="relative">
-              <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
               <input
                 type="text"
-                placeholder="Search manga..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white/20 transition-colors"
+                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/[0.03] border border-white/5 focus:border-blue-500/50 focus:bg-white/[0.06] outline-none transition-all text-sm"
               />
             </div>
           </div>
@@ -552,28 +535,26 @@ const debounce = (func, wait) => {
 
         {/* View Mode Toggle */}
         <div className="flex justify-end mb-6">
-          <div className="flex gap-2 bg-white/10 rounded-lg p-1">
+          <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-2 rounded-md transition-colors ${
                 viewMode === 'grid'
-                  ? 'bg-white/20 text-white'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              <Grid size={16} className="inline mr-1" />
-              Grid
+              <Grid size={16} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-2 rounded-md transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-white/20 text-white'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              <Book size={16} className="inline mr-1" />
-              List
+              <List size={16} />
             </button>
           </div>
         </div>
@@ -583,18 +564,17 @@ const debounce = (func, wait) => {
 
         {/* Pagination Controls */}
         {filteredTotalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mt-8">
+          <div className="flex justify-center items-center gap-3 mt-8">
             <button
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`p-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center ${
                 currentPage === 1
-                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  : 'bg-white/10 text-white hover:bg-white/20'
+                  ? 'bg-white/[0.02] text-gray-600 cursor-not-allowed border border-white/5'
+                  : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
               }`}
             >
-              <ChevronLeft size={16} className="inline mr-1" />
-              Prev
+              <ChevronLeft size={16} />
             </button>
             
             {/* Page Numbers */}
@@ -615,10 +595,10 @@ const debounce = (func, wait) => {
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 ${
                       currentPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white/10 text-white hover:bg-white/20'
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10'
                     }`}
                   >
                     {pageNum}
@@ -630,14 +610,13 @@ const debounce = (func, wait) => {
             <button
               onClick={handleNextPage}
               disabled={currentPage === filteredTotalPages}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`p-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center ${
                 currentPage === filteredTotalPages
-                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  : 'bg-white/10 text-white hover:bg-white/20'
+                  ? 'bg-white/[0.02] text-gray-600 cursor-not-allowed border border-white/5'
+                  : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
               }`}
             >
-              Next
-              <ChevronRight size={16} className="inline ml-1" />
+              <ChevronRight size={16} />
             </button>
           </div>
         )}
@@ -645,7 +624,7 @@ const debounce = (func, wait) => {
         {/* Page Info */}
         {filteredTotalPages > 1 && (
           <div className="text-center mt-4 text-sm text-gray-500">
-            Page {currentPage} of {filteredTotalPages} ({filteredAndSortedManga.length} manga{searchQuery && ' found'})
+            Page {currentPage} of {filteredTotalPages}
           </div>
         )}
       </div>

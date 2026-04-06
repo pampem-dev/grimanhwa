@@ -34,7 +34,7 @@ const History = ({ onOpenManga }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 sm:p-10">
+    <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
       <div className="max-w-[1600px] mx-auto">
         
         {/* Header matching your Collections screenshot */}
