@@ -82,14 +82,10 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
 
   // Touch events
   const handleTouchStart = (e) => {
-    e.preventDefault(); // Prevent page scroll
     handleDragStart(e.touches[0].clientX);
   };
 
   const handleTouchMove = (e) => {
-    if (isDragging) {
-      e.preventDefault(); // Prevent page scroll during drag
-    }
     handleDragMove(e.touches[0].clientX);
   };
 
@@ -160,7 +156,7 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
       onTouchEnd={handleTouchEnd}
       style={{ 
         cursor: isDragging ? 'grabbing' : 'grab',
-        touchAction: 'none' // Prevent all touch actions including scroll
+        touchAction: 'pan-y' // Allow vertical scrolling but prevent horizontal scroll
       }}
     >
 

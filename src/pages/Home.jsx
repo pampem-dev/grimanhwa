@@ -538,7 +538,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       {/* Page Info */}
       {!loadingRecent && totalPages > 1 && (
         <div className="text-center mt-4 text-sm text-gray-500">
-          Page {currentPage} of {totalPages} ({allMangaList.length} manga)
+          Page {currentPage} of {totalPages}
         </div>
       )}
     </div>
