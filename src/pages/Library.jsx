@@ -198,7 +198,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">My Library</h1>
+          <h1 className="text-3xl font-bold text-white">Library</h1>
           <div className="text-sm text-gray-400">
             {searchQuery ? 
               `${filteredAndSortedManga.length} manga found` : 
