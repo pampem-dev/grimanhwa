@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-import { Clock, TrendingUp, Crown } from 'lucide-react';
+import { Clock, TrendingUp, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import MangaCard from '../components/MangaCard';
 import HeroCarousel from '../components/HeroCarousel';
@@ -483,13 +483,13 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           <button
             onClick={handlePrevPage}
             disabled={currentPage === 1}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`p-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center ${
               currentPage === 1
-                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-white/[0.02] text-gray-600 cursor-not-allowed border border-white/5'
+                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
             }`}
           >
-            Previous
+            <ChevronLeft size={16} />
           </button>
           
           <div className="flex gap-1">
@@ -524,13 +524,13 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`p-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center ${
               currentPage === totalPages
-                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-white/[0.02] text-gray-600 cursor-not-allowed border border-white/5'
+                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
             }`}
           >
-            Next
+            <ChevronRight size={16} />
           </button>
         </div>
       )}
