@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Loader2, ArrowUp, X, Eye, EyeOff } from 'lucide-react';
 import { API_ENDPOINTS, fetchWithRetry } from '../config/api';
 
@@ -52,6 +52,7 @@ const LazyImage = ({ src, alt, className, style, priority = false }) => {
 const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   const { chapterId: urlChapterId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [chapters, setChapters] = useState([]);
   const [loadedIds, setLoadedIds] = useState(new Set());
   const [isLoadingNext, setIsLoadingNext] = useState(false);
@@ -68,6 +69,13 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
   // Use URL chapter ID if not provided via props
   const chapterId = propChapterId || urlChapterId;
+  let mangaId = searchParams.get('manga') || '';
+
+  // If mangaId is not provided, extract it from chapter ID
+  if (!mangaId && chapterId) {
+    // Extract manga ID from chapter ID (remove /chapter/{number} from the end)
+    mangaId = chapterId.replace(/\/chapter\/\d+$/i, '');
+  }
 
   const CHAPTER_CACHE_TTL_MS = 60 * 60 * 1000;
   const getChapterCacheKey = (id) => `readerCache_chapter_${id}`;
@@ -262,9 +270,24 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                     scrollToPage(currentChapter.id, lastPageIndex);
                   }, 100);
                 }
+                // If going to a next chapter, mark the current chapter as read
+                else if (currentNum > previousNum && mangaId) {
+                  try {
+                    const readChaptersKey = `manga_read_chapters_${mangaId}`;
+                    const readChaptersData = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+                    
+                    if (!readChaptersData.includes(currentChapter.id)) {
+                      readChaptersData.push(currentChapter.id);
+                      localStorage.setItem(readChaptersKey, JSON.stringify(readChaptersData));
+                      console.log('✅ Chapter marked as read:', currentChapter.id);
+                    }
+                  } catch (err) {
+                    console.error('Failed to mark chapter as read:', err);
+                  }
+                }
               }
               
-              navigate(`/reader/${encodeURIComponent(currentChapterId)}`, { replace: true });
+              navigate(`/reader/${encodeURIComponent(currentChapterId)}?manga=${encodeURIComponent(mangaId || '')}`, { replace: true });
             }
           }
         });
@@ -274,7 +297,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     const headers = document.querySelectorAll('.chapter-marker');
     headers.forEach((h) => observer.observe(h));
     return () => observer.disconnect();
-  }, [chapters, activeChapterId, chapterId, navigate, scrollToPage]);
+  }, [chapters, activeChapterId, chapterId, navigate, scrollToPage, mangaId]);
 
   // Track current page position
   useEffect(() => {
@@ -324,6 +347,22 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                 console.log('🏁 Chapter end reached:', { chapterId: chapter.id, lastPage: lastPageIndex + 1 });
                 savePagePosition(chapter.id, lastPageIndex);
                 setVisiblePage({ chapterId: chapter.id, pageIndex: lastPageIndex });
+
+                // Mark chapter as read in localStorage
+                try {
+                  if (mangaId) {
+                    const readChaptersKey = `manga_read_chapters_${mangaId}`;
+                    const readChaptersData = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+                    
+                    if (!readChaptersData.includes(chapter.id)) {
+                      readChaptersData.push(chapter.id);
+                      localStorage.setItem(readChaptersKey, JSON.stringify(readChaptersData));
+                      console.log('✅ Chapter marked as read:', chapter.id, 'for manga:', mangaId);
+                    }
+                  }
+                } catch (err) {
+                  console.error('Failed to mark chapter as read:', err);
+                }
               }
             });
           },

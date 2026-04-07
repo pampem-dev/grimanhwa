@@ -124,11 +124,8 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             return;
           }
           
-          console.log('All manga count:', allManga.length);
-          console.log('Looking for mangaId:', decodeURIComponent(mangaId));
           
           const foundManga = allManga.find(m => m.id === decodeURIComponent(mangaId));
-          console.log('Found manga:', foundManga);
           
           if (foundManga) {
             setManga(foundManga);
@@ -749,17 +746,17 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                 <button
                   onClick={() => chapters.length > 0 && onChapterRead(chapters[chapters.length - 1])}
                   disabled={chapters.length === 0}
-                  className="flex items-center justify-center space-x-3 w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all active:scale-[0.98] shadow-lg"
+                  className="flex items-center justify-center space-x-2 w-full py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-2xl border border-white/10 transition-all active:scale-[0.98]"
                 >
                   <Play size={18} fill="currentColor" />
                   <span>Start Reading</span>
                 </button>
-                <button 
+                <button
                   onClick={toggleLibrary}
-                  className={`flex items-center justify-center space-x-2 w-full py-3.5 font-semibold rounded-xl border transition-all active:scale-[0.98] shadow-lg ${
-                    isInLibrary 
-                      ? 'bg-red-600 hover:bg-red-500 text-white border-red-700' 
-                      : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                  className={`flex items-center justify-center space-x-2 w-full py-3 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
+                    isInLibrary
+                      ? 'bg-white/5 hover:bg-white/10 text-yellow-400 border-yellow-400/30'
+                      : 'bg-white/[0.03] hover:bg-white/[0.06] text-white border-white/5'
                   }`}
                 >
                   <Star size={18} fill={isInLibrary ? 'currentColor' : 'none'} />
@@ -768,7 +765,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
               </div>
 
               {/* Quick Info Grid */}
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
                 <div className="text-center">
                   <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-1">Status</p>
                   <span className={`text-xs px-2.5 py-1 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
@@ -795,7 +792,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             <div className="space-y-10">
               {/* Synopsis Section */}
               <section className="relative">
-                <div className="flex items-center space-x-2 mb-4 text-blue-400">
+                <div className="flex items-center space-x-2 mb-4 text-blue-400 border-b border-white/5 pb-4">
                   <Info size={18} />
                   <h2 className="text-sm font-black uppercase tracking-[0.2em]">Summary</h2>
                 </div>
@@ -815,13 +812,9 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
               {/* Chapters List */}
               <section>
-                <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+                <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
                   <div className="flex items-center space-x-2">
-                    <List size={20} className="text-blue-400" />
                     <h2 className="text-xl font-bold text-white uppercase tracking-wider">Chapter List</h2>
-                  </div>
-                  <div className="flex items-center text-xs font-bold text-gray-500 bg-white/5 px-3 py-1 rounded-lg border border-white/10">
-                    LATEST FIRST
                   </div>
                 </div>
 
@@ -836,7 +829,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                           <button
                             key={chapter.id}
                             onClick={() => handleChapterClick(chapter)}
-                            className={`w-full bg-gradient-to-r from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 text-left hover:from-blue-900/30 hover:to-blue-800/30 hover:border-blue-600/50 transition-all duration-300 group backdrop-blur-sm relative overflow-hidden ${
+                            className={`w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-left hover:bg-white/[0.06] hover:border-white/10 transition-all duration-300 group backdrop-blur-sm relative overflow-hidden ${
                               isRead ? 'opacity-60' : ''
                             } cursor-pointer`}
                           >
@@ -847,7 +840,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                                     <h3 className={`font-bold text-base transition-colors truncate ${
                                       isRead
                                         ? 'text-green-400 group-hover:text-green-300'
-                                        : 'text-white group-hover:text-blue-300'
+                                        : 'text-white group-hover:text-white/80'
                                     }`}>
                                       {getChapterDisplayTitle(chapter)}
                                     </h3>
@@ -868,7 +861,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                       })}
                     </>
                   ) : (
-                    <div className="py-16 text-center bg-gradient-to-br from-gray-900/50 to-gray-800/30 rounded-3xl border-2 border-dashed border-gray-700 backdrop-blur-sm">
+                    <div className="py-16 text-center bg-white/[0.03] rounded-2xl border border-white/5 backdrop-blur-sm">
                       <Book size={48} className="mx-auto text-gray-600 mb-4 opacity-30" />
                       <p className="text-gray-400 font-medium tracking-wide mb-2">No chapters available</p>
                       <p className="text-gray-500 text-sm">Chapters will appear here once they're indexed</p>

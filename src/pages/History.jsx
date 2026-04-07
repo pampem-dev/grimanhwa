@@ -1,10 +1,36 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Trash2, BookOpen } from 'lucide-react';
 
 const HISTORY_KEY = 'manga_reader_history_v1';
 
 const History = ({ onOpenManga }) => {
   const [items, setItems] = useState([]);
+
+  // Function to get the latest read chapter for a manga
+  const getLatestReadChapter = useCallback((mangaId) => {
+    try {
+      const readChaptersKey = `manga_read_chapters_${mangaId}`;
+      const readChaptersData = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+      
+      if (readChaptersData.length === 0) return null;
+      
+      // Extract chapter numbers from chapter IDs and find the highest
+      const chapterNumbers = readChaptersData
+        .map(chapterId => {
+          const match = chapterId.match(/chapter\/(\d+)/i);
+          return match ? parseInt(match[1]) : 0;
+        })
+        .filter(num => num > 0);
+      
+      if (chapterNumbers.length === 0) return null;
+      
+      const latestChapterNum = Math.max(...chapterNumbers);
+      return `Chapter ${latestChapterNum}`;
+    } catch (err) {
+      console.error('Failed to get latest read chapter:', err);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -65,6 +91,7 @@ const History = ({ onOpenManga }) => {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-x-4 gap-y-8">
             {sortedItems.map((it) => {
               const displayTitle = cleanTitle(it.title);
+              const latestChapter = getLatestReadChapter(it.mangaId);
               return (
                 <div 
                   key={it.mangaId} 
@@ -82,12 +109,14 @@ const History = ({ onOpenManga }) => {
                       }}
                     />
                     
-                    {/* Chapter Overlay (Optional, matches the "last read" info) */}
-                    <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                       <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">
-                         {it.lastChapterLabel || 'Continue'}
-                       </p>
-                    </div>
+                    {/* Chapter Overlay - Show latest read chapter */}
+                    {latestChapter && (
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black to-transparent">
+                         <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-tighter">
+                           {latestChapter}
+                         </p>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Title styling matching your screenshot: All caps, bold, truncated */}

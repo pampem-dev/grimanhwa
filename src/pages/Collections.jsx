@@ -249,9 +249,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const filteredAndSortedManga = useMemo(() => {
     // Early return if no data
     if (allManga.length === 0) return [];
-    
-    console.log(`🔍 Sorting: total manga=${allManga.length}, sortBy=${sortBy}`);
-    
+        
     // Use Web Worker for heavy filtering if available
     if (window.Worker && allManga.length > 1000) {
       // For very large datasets, consider using Web Workers
@@ -295,7 +293,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       }
     });
     
-    console.log(`📊 Sorted result: ${sorted.length} manga`);
     return sorted;
   }, [allManga, searchQuery, sortBy]);
 
@@ -476,7 +473,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
             // console.log(`📄 Loading page ${page} in background...`);
             const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
             //for localhost
-            // const page1Url = 'http://127.0.0.1:8000/api/kaynscan/browse/?page=1';
+            // const pageUrl = 'http://127.0.0.1:8000/api/kaynscan/browse/?page=1';
             // console.log(`Fetching: ${pageUrl}`);
             
             const controller = new AbortController();

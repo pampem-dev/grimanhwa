@@ -47,7 +47,7 @@ function AppContent() {
 
   const handleChapterNavigation = (nextChapterId) => {
     setActiveMangaId(nextChapterId);
-    navigate(`/reader/${encodeURIComponent(nextChapterId)}`);
+    navigate(`/reader/${encodeURIComponent(nextChapterId)}?manga=${encodeURIComponent(detailsManga?.id || '')}`);
     if (detailsManga) {
       addToHistory(detailsManga, { id: nextChapterId });
     }
@@ -55,6 +55,7 @@ function AppContent() {
 
   const handleMangaSelect = (id) => {
     setActiveMangaId(id);
+    // If id is a chapter ID, navigate directly. If it's a manga ID, we need manga context
     navigate(`/reader/${encodeURIComponent(id)}`);
   };
 
@@ -71,6 +72,11 @@ function AppContent() {
   const handleReaderExit = () => {
     setActiveMangaId(null);
     navigate(-1);
+  };
+
+  const handleHistoryMangaOpen = (manga) => {
+    setDetailsManga(manga);
+    navigate(`/details/${encodeURIComponent(manga.id)}`);
   };
 
   const handleChapterRead = (chapter) => {
@@ -105,7 +111,7 @@ function AppContent() {
         <Route path="/" element={<Home onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
         <Route path="/home" element={<Home onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
         <Route path="/collections" element={<Collections onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
-        <Route path="/history" element={<History onOpenManga={(manga) => setDetailsManga(manga)} />} />
+        <Route path="/history" element={<History onOpenManga={handleHistoryMangaOpen} />} />
         <Route path="/library" element={<Library onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/more" element={<Settings />} />
@@ -123,7 +129,7 @@ function AppContent() {
           element={
             <Reader 
               onNavigate={handleChapterNavigation}
-              onExit={() => navigate(-1)} 
+              onExit={handleReaderExit} 
             />
           } 
         />
