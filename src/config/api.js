@@ -1,13 +1,8 @@
 // Central API configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL;
-
-// Debug: Log the API URL to check if it's set correctly
-console.log('🔍 API_BASE_URL:', API_BASE_URL);
-console.log('🔍 Environment variables:', process.env);
+const API_BASE_URL = 'http://127.0.0.1:8000/';
 
 //url for prod
 //  process.env.REACT_APP_API_URL ||
-
 // url for debug
 // 'http://127.0.0.1:8000/' or eto 'http://10.7.6.205:8000/'
 

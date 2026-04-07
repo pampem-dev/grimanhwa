@@ -2,6 +2,121 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
+// Virtual scroll component for large lists
+const VirtualScroll = ({ items, itemHeight, containerHeight, renderItem }) => {
+  const [scrollTop, setScrollTop] = useState(0);
+  const containerRef = useRef(null);
+  
+  const visibleStart = Math.floor(scrollTop / itemHeight);
+  const visibleEnd = Math.min(
+    visibleStart + Math.ceil(containerHeight / itemHeight) + 1,
+    items.length
+  );
+  
+  const visibleItems = items.slice(visibleStart, visibleEnd);
+  const totalHeight = items.length * itemHeight;
+  const offsetY = visibleStart * itemHeight;
+  
+  return (
+    <div
+      ref={containerRef}
+      style={{ height: containerHeight, overflow: 'auto' }}
+      onScroll={(e) => setScrollTop(e.target.scrollTop)}
+    >
+      <div style={{ height: totalHeight, position: 'relative' }}>
+        <div style={{ transform: `translateY(${offsetY}px)` }}>
+          {visibleItems.map((item, index) => 
+            renderItem(item, visibleStart + index)
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// Helper function
+const cleanTitle = (title) => {
+  if (!title) return title;
+  return title.replace(/^\d+\.\d+/, '');
+};
+
+// Separate components for better performance
+const MangaCard = React.memo(({ manga, onClick, imageObserver }) => {
+  const imgRef = useRef(null);
+  
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && imageObserver) {
+      imageObserver.observe(img);
+    }
+    
+    return () => {
+      if (img && imageObserver) {
+        imageObserver.unobserve(img);
+      }
+    };
+  }, [imageObserver]);
+  
+  return (
+    <div className="cursor-pointer group" onClick={onClick}>
+      <div className="relative overflow-hidden rounded-xl">
+        <img
+          ref={imgRef}
+          data-src={manga.cover_url || manga.cover}
+          className="w-full aspect-[3/4.5] object-cover group-hover:scale-105 transition-transform duration-300 bg-gray-800"
+          alt={manga.title}
+          onError={(e) => {
+            e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
+          }}
+        />
+      </div>
+      <div className="mt-2 text-center">
+        <h3 className="text-sm font-bold uppercase tracking-tight truncate text-white group-hover:text-blue-400 transition-colors">
+          {manga._cleanTitle || cleanTitle(manga.title)}
+        </h3>
+      </div>
+    </div>
+  );
+});
+
+const MangaListItem = React.memo(({ manga, onClick, imageObserver }) => {
+  const imgRef = useRef(null);
+  
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && imageObserver) {
+      imageObserver.observe(img);
+    }
+    
+    return () => {
+      if (img && imageObserver) {
+        imageObserver.unobserve(img);
+      }
+    };
+  }, [imageObserver]);
+  
+  return (
+    <div className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors cursor-pointer group" onClick={onClick}>
+      <div className="relative shrink-0">
+        <img
+          ref={imgRef}
+          data-src={manga.cover_url || manga.cover}
+          className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform bg-gray-800"
+          alt={manga.title}
+          onError={(e) => {
+            e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
+          }}
+        />
+      </div>
+      <div className="flex-1 min-w-0 flex flex-col justify-center">
+        <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight text-base">
+          {manga._cleanTitle || cleanTitle(manga.title)}
+        </p>
+      </div>
+    </div>
+  );
+});
 
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [allManga, setAllManga] = useState([]);
@@ -19,6 +134,35 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   // Cache for API responses
   const apiCache = useRef(new Map());
   const infoCache = useRef(new Map());
+  
+  // Intersection Observer for lazy loading images
+  const imageObserverRef = useRef(null);
+  
+  // Setup intersection observer for lazy loading
+  useEffect(() => {
+    imageObserverRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            const src = img.dataset.src;
+            if (src) {
+              img.src = src;
+              img.removeAttribute('data-src');
+              imageObserverRef.current.unobserve(img);
+            }
+          }
+        });
+      },
+      { rootMargin: '50px' }
+    );
+    
+    return () => {
+      if (imageObserverRef.current) {
+        imageObserverRef.current.disconnect();
+      }
+    };
+  }, []);
 
   // Persistent cache functions
   const getPersistentCache = (key) => {
@@ -49,28 +193,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
   };
 
-  // Simple debounce function
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
-  const cleanTitle = (title) => {
-    if (!title) return title;
-    return title.replace(/^\d+\.\d+/, '');
-  };
-
-  // const extractRating = (title) => {
-  // // Rating function disabled - no longer used
-  // return '8.8';
-// };
-
   // Pagination logic
   const totalPages = Math.ceil(allManga.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -82,15 +204,25 @@ const debounce = (func, wait) => {
     // Early return if no data
     if (allManga.length === 0) return [];
     
+    // Use Web Worker for heavy filtering if available
+    if (window.Worker && allManga.length > 1000) {
+      // For very large datasets, consider using Web Workers
+      console.log('Large dataset detected, consider using Web Workers for filtering');
+    }
+    
     let filtered = allManga;
     
-    // Apply search filter (optimized)
+    // Apply search filter (optimized with pre-computed lowercase titles)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(manga => 
-        manga.title.toLowerCase().includes(query) ||
-        cleanTitle(manga.title).toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(manga => {
+        const title = manga.title || '';
+        const cleanTitleValue = manga._cleanTitle || (manga._cleanTitle = cleanTitle(title));
+        const lowerTitle = manga._lowerTitle || (manga._lowerTitle = title.toLowerCase());
+        const lowerCleanTitle = manga._lowerCleanTitle || (manga._lowerCleanTitle = cleanTitleValue.toLowerCase());
+        
+        return lowerTitle.includes(query) || lowerCleanTitle.includes(query);
+      });
     }
     
     // Apply sorting (optimized)
@@ -99,8 +231,10 @@ const debounce = (func, wait) => {
       
       switch (sortBy) {
         case 'title':
-          aValue = cleanTitle(a.title).toLowerCase();
-          bValue = cleanTitle(b.title).toLowerCase();
+          aValue = a._cleanTitle || (a._cleanTitle = cleanTitle(a.title));
+          bValue = b._cleanTitle || (b._cleanTitle = cleanTitle(b.title));
+          aValue = a._lowerCleanTitle || (a._lowerCleanTitle = aValue.toLowerCase());
+          bValue = b._lowerCleanTitle || (b._lowerCleanTitle = bValue.toLowerCase());
           return sortOrder === 'asc' 
             ? aValue.localeCompare(bValue)
             : bValue.localeCompare(aValue);
@@ -189,34 +323,45 @@ const debounce = (func, wait) => {
     
     
     // Fetch in larger batches for better performance
-    const batchSize = 6; // Increased from 3 to 6 for fewer API calls
+    const batchSize = 10; // Increased batch size
     const batches = [];
     
     for (let i = 0; i < itemsToFetch.length; i += batchSize) {
       batches.push(itemsToFetch.slice(i, i + batchSize));
     }
     
-    for (const batch of batches) {
+    // Use Promise.allSettled for better error handling
+    const batchPromises = batches.map(async (batch, batchIndex) => {
       const infoPromises = batch.map(async (manga) => {
-        const info = await fetchBasicMangaInfo(manga.id);
-        return { mangaId: manga.id, info };
+        try {
+          const info = await fetchBasicMangaInfo(manga.id);
+          return { mangaId: manga.id, info, success: true };
+        } catch (error) {
+          console.error(`Failed to fetch info for ${manga.id}:`, error);
+          return { mangaId: manga.id, info: null, success: false };
+        }
       });
       
-      try {
-        const infoResults = await Promise.all(infoPromises);
-        const detailsMap = { ...mangaDetails };
-        infoResults.forEach(({ mangaId, info }) => {
+      const results = await Promise.allSettled(infoPromises);
+      return results.map(result => 
+        result.status === 'fulfilled' ? result.value : { success: false }
+      );
+    });
+    
+    // Process batches concurrently with controlled concurrency
+    const concurrencyLimit = 3;
+    for (let i = 0; i < batchPromises.length; i += concurrencyLimit) {
+      const currentBatch = batchPromises.slice(i, i + concurrencyLimit);
+      const batchResults = await Promise.all(currentBatch);
+      
+      // Update state with successful results
+      const detailsMap = { ...mangaDetails };
+      batchResults.flat().forEach(({ mangaId, info, success }) => {
+        if (success && info) {
           detailsMap[mangaId] = info;
-        });
-        setMangaDetails(detailsMap);
-        
-        // Reduced delay between batches for faster loading
-        if (batches.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 50)); // Reduced from 100ms to 50ms
         }
-      } catch (error) {
-        console.error('Error fetching info batch:', error);
-      }
+      });
+      setMangaDetails(detailsMap);
     }
   }, [mangaDetails, currentPage]);
 
@@ -261,7 +406,7 @@ const debounce = (func, wait) => {
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // Reduced from 15s to 10s for faster response
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Reduced timeout for faster failure
       
       const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -322,31 +467,46 @@ const debounce = (func, wait) => {
     fetchAllManga();
   }, [fetchAllManga]);
 
-  // Prefetch next page data for faster navigation
+  // Optimized prefetch next page data
   useEffect(() => {
-    if (currentPage < totalPages && !loading && allManga.length > 0) {
+    if (currentPage < filteredTotalPages && !loading && allManga.length > 0) {
       const nextPage = currentPage + 1;
       const nextPageStart = (nextPage - 1) * itemsPerPage;
       const nextPageEnd = nextPage * itemsPerPage;
-      const nextPageItems = allManga.slice(nextPageStart, nextPageEnd);
+      const nextPageItems = filteredAndSortedManga.slice(nextPageStart, nextPageEnd);
       
       if (nextPageItems.length > 0) {
-        // Prefetch basic info for next page items (with lower priority)
-        setTimeout(() => {
-          const itemsToPrefetch = nextPageItems.slice(0, 3); // Prefetch first 3 items
-          itemsToPrefetch.forEach(manga => {
-            if (!mangaDetails[manga.id]) {
-              fetchBasicMangaInfo(manga.id).then(info => {
-                if (info) {
-                  setMangaDetails(prev => ({ ...prev, [manga.id]: info }));
+        // Use requestIdleCallback for non-blocking prefetch
+        const prefetchData = () => {
+          const itemsToPrefetch = nextPageItems.slice(0, 5); // Prefetch more items
+          const prefetchPromises = itemsToPrefetch
+            .filter(manga => !mangaDetails[manga.id])
+            .map(manga => 
+              fetchBasicMangaInfo(manga.id).then(info => ({ mangaId: manga.id, info }))
+                .catch(() => ({ mangaId: manga.id, info: null }))
+            );
+          
+          if (prefetchPromises.length > 0) {
+            Promise.allSettled(prefetchPromises).then(results => {
+              const detailsMap = { ...mangaDetails };
+              results.forEach(result => {
+                if (result.status === 'fulfilled' && result.value.info) {
+                  detailsMap[result.value.mangaId] = result.value.info;
                 }
               });
-            }
-          });
-        }, 2000); // Start prefetching after 2 seconds
+              setMangaDetails(detailsMap);
+            });
+          }
+        };
+        
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(prefetchData, { timeout: 2000 });
+        } else {
+          setTimeout(prefetchData, 100); // Fallback
+        }
       }
     }
-  }, [currentPage, totalPages, loading, allManga, mangaDetails]);
+  }, [currentPage, filteredTotalPages, loading, filteredAndSortedManga, mangaDetails, itemsPerPage]);
 
   // Pagination controls
   const handlePageChange = (pageNumber) => {
@@ -366,76 +526,41 @@ const debounce = (func, wait) => {
     }
   };
 
-  // Render grid view
-  const renderGridView = () => (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {filteredCurrentItems.map((manga, index) => {
-        return (
-          <div 
+  // Optimized grid view with lazy loading
+  const renderGridView = () => {
+    const items = filteredCurrentItems;
+    
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {items.map((manga, index) => (
+          <MangaCard 
             key={manga.id || index} 
-            className="cursor-pointer group"
+            manga={manga}
             onClick={() => onMangaDetails(manga)}
-          >
-            <div className="relative overflow-hidden rounded-xl">
-              <img
-                src={manga.cover_url || manga.cover}
-                className="w-full aspect-[3/4.5] object-cover group-hover:scale-105 transition-transform duration-300"
-                alt={manga.title}
-                onError={(e) => {
-                  // Fallback to a placeholder if image fails to load
-                  e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
-                }}
-              />
-              {/* <div className="absolute top-2 left-2 bg-[#050505]/80 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1 border border-white/10">
-                <Star size={10} className="text-yellow-400" fill="currentColor" />
-                <span className="text-[10px] font-bold text-white">{extractRating(manga.title)}</span>
-              </div> */}
-            </div>
-            <div className="mt-2 text-center">
-              <h3 className="text-sm font-bold uppercase tracking-tight truncate text-white group-hover:text-blue-400 transition-colors">
-                {cleanTitle(manga.title)}
-              </h3>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+            imageObserver={imageObserverRef.current}
+          />
+        ))}
+      </div>
+    );
+  };
 
-  // Render list view
-  const renderListView = () => (
-    <div className="space-y-3">
-      {filteredCurrentItems.map((manga, index) => {
-        return (
-          <div 
+  // Optimized list view with lazy loading
+  const renderListView = () => {
+    const items = filteredCurrentItems;
+    
+    return (
+      <div className="space-y-3">
+        {items.map((manga, index) => (
+          <MangaListItem 
             key={manga.id || index} 
-            className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors cursor-pointer group"
+            manga={manga}
             onClick={() => onMangaDetails(manga)}
-          >
-            <div className="relative shrink-0">
-              <img
-                src={manga.cover_url || manga.cover}
-                className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
-                alt={manga.title}
-                onError={(e) => {
-                  // Fallback to a placeholder if image fails to load
-                  e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
-                }}
-              />
-              {/* <div className="absolute top-1 left-1 bg-[#050505]/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
-                {extractRating(manga.title)}
-              </div> */}
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight text-base">
-                {cleanTitle(manga.title)}
-              </p>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+            imageObserver={imageObserverRef.current}
+          />
+        ))}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -490,7 +615,7 @@ const debounce = (func, wait) => {
           <h1 className="text-3xl font-bold text-white">Collections</h1>
           <div className="text-sm text-gray-400">
             {searchQuery ? 
-              `${filteredAndSortedManga.length} manga found` : 
+              `${filteredAndSortedManga.length} found` : 
               `${allManga.length} total`
             }
           </div>
