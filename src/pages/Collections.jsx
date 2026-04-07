@@ -471,9 +471,10 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         for (let page = startPage; page <= endPage; page++) {
           try {
             // console.log(`📄 Loading page ${page} in background...`);
-            const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
+            // for prod
+            // const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
             //for localhost
-            // const pageUrl = 'http://127.0.0.1:8000/api/kaynscan/browse/?page=1';
+            const pageUrl = `http://127.0.0.1:8000/api/kaynscan/browse/?page=${page}`;
             // console.log(`Fetching: ${pageUrl}`);
             
             const controller = new AbortController();

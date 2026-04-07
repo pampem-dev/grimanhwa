@@ -727,7 +727,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
         <div className="flex flex-col lg:flex-row gap-8 lg:gap-16">
           {/* Left: Manga Info */}
-          <div className="w-full lg:w-[320px] flex-shrink-0">
+          <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col">
             <div className="space-y-6">
               <div className="relative group">
                 <div className="relative w-full aspect-[3/4.5] rounded-xl overflow-hidden border border-white/5">
@@ -741,6 +741,13 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   />
                 </div>
               </div>
+              
+              {/* Title - only visible on mobile */}
+              <header className="lg:hidden mb-4">
+                <h1 className="text-3xl font-bold text-white tracking-tight">
+                  {cleanTitle(mangaDetails.title)}
+                </h1>
+              </header>
               
               <div className="grid grid-cols-1 gap-3">
                 <button
@@ -782,7 +789,8 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
           {/* Right: Main Content */}
           <div className="flex-1 min-w-0">
-            <header className="mb-8">
+            {/* Title - only visible on desktop */}
+            <header className="mb-8 hidden lg:block">
               <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
                 {cleanTitle(mangaDetails.title)}
               </h1>
