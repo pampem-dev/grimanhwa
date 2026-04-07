@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown, ChevronDown } from 'lucide-react';
-import { API_ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, API_URL } from '../config/api';
 
 // Virtual scroll component for large lists
 const VirtualScroll = ({ items, itemHeight, containerHeight, renderItem }) => {
@@ -473,9 +473,11 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         
         for (let page = startPage; page <= endPage; page++) {
           try {
-            console.log(`📄 Loading page ${page} in background...`);
-            const pageUrl = `http://127.0.0.1:8000/api/kaynscan/browse/?page=${page}`;
-            console.log(`🔗 Fetching: ${pageUrl}`);
+            // console.log(`📄 Loading page ${page} in background...`);
+            const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
+            //for localhost
+            // const page1Url = 'http://127.0.0.1:8000/api/kaynscan/browse/?page=1';
+            // console.log(`Fetching: ${pageUrl}`);
             
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -483,15 +485,15 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
             const response = await fetch(pageUrl, { signal: controller.signal });
             clearTimeout(timeoutId);
             
-            console.log(`📡 Response status: ${response.status} for page ${page}`);
+            // console.log(`📡 Response status: ${response.status} for page ${page}`);
             
             if (response.ok) {
               const data = await response.json();
               const pageManga = data.manga || [];
-              console.log(`📊 Page ${page} data:`, { manga: pageManga.length, totalManga: data.total });
+              // console.log(`📊 Page ${page} data:`, { manga: pageManga.length, totalManga: data.total });
               
               if (pageManga.length === 0) {
-                console.log(`🏁 No more manga found on page ${page}, stopping`);
+                // console.log(`🏁 No more manga found on page ${page}, stopping`);
                 break;
               }
               
@@ -502,9 +504,9 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
               const currentEstimated = Math.ceil(mangaData.length / itemsPerPage);
               if (currentEstimated > estimatedTotalPages) {
                 setEstimatedTotalPages(currentEstimated);
-                console.log(`📄 Updated pagination: ${currentEstimated} pages estimated`);
+                // console.log(`📄 Updated pagination: ${currentEstimated} pages estimated`);
               } else {
-                console.log(`📄 Keeping pagination at ${estimatedTotalPages} pages (loaded: ${currentEstimated})`);
+                // console.log(`📄 Keeping pagination at ${estimatedTotalPages} pages (loaded: ${currentEstimated})`);
               }
               
               // Update display with new data
@@ -535,7 +537,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       // Fetch page 1 immediately and display it
       try {
         console.log('� Fetching page 1 immediately...');
-        const page1Url = 'http://127.0.0.1:8000/api/kaynscan/browse/?page=1';
+        const page1Url = `${API_URL}api/kaynscan/browse/?page=1`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // Short timeout for first page
         
