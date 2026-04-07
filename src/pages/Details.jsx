@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
-const Details = ({ manga, onBack, onChapterRead }) => {
+const Details = ({ manga: propManga, onBack, onChapterRead }) => {
+  const { mangaId } = useParams();
+  const navigate = useNavigate();
+  const [manga, setManga] = useState(propManga);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true); // Default expanded for better UX
-  const [mangaDetails, setMangaDetails] = useState(manga);
+  const [mangaDetails, setMangaDetails] = useState(propManga);
   const [readChapters, setReadChapters] = useState(new Set()); // Track read chapters
   const [isInLibrary, setIsInLibrary] = useState(false); // Track if manga is in library
 
@@ -52,26 +56,105 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
   // Load read chapters from localStorage on mount
   useEffect(() => {
-    const historyKey = 'mangaHistory';
-    const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-    const readChapterIds = new Set();
+    if (!manga?.id) return;
     
-    history.forEach(item => {
-      if (item.mangaId === manga.id && item.chapterId) {
-        readChapterIds.add(item.chapterId);
-      }
-    });
+    // Use a separate key for tracking all read chapters per manga
+    const readChaptersKey = `manga_read_chapters_${manga.id}`;
+    const readChaptersData = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+    const readChapterIds = new Set(readChaptersData);
     
     setReadChapters(readChapterIds);
-  }, [manga.id]);
+    console.log('Read chapters loaded:', readChapterIds.size, 'chapters for manga:', manga.id);
+  }, [manga?.id]);
+
+  // Get saved page position for a chapter
+  const getSavedPagePosition = (chapterId) => {
+    const key = `reader_position_${chapterId}`;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const position = JSON.parse(saved);
+        // Only return if less than 7 days old
+        if (Date.now() - position.timestamp < 7 * 24 * 60 * 60 * 1000) {
+          return position.pageIndex + 1; // Convert to 1-based index for display
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load page position:', err);
+    }
+    return null;
+  };
 
   // Check if manga is in library
   useEffect(() => {
+    if (!manga?.id) return;
+    
     const libraryKey = 'mangaLibrary';
     const library = JSON.parse(localStorage.getItem(libraryKey) || '[]');
     const inLibrary = library.some(item => item.id === manga.id);
     setIsInLibrary(inLibrary);
-  }, [manga.id]);
+  }, [manga?.id]);
+
+  // Fetch manga data if not provided via props
+  useEffect(() => {
+    if (propManga) {
+      setManga(propManga);
+      setMangaDetails(propManga);
+      return;
+    }
+
+    // Fetch manga from collections if not provided
+    const fetchMangaFromCollections = async () => {
+      try {
+        const response = await fetch(API_ENDPOINTS.BROWSE_ALL);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('API Response:', data); // Debug log
+          
+          // Handle different response formats
+          let allManga = [];
+          if (Array.isArray(data)) {
+            allManga = data;
+          } else if (data && Array.isArray(data.manga)) {
+            allManga = data.manga;
+          } else if (data && Array.isArray(data.results)) {
+            allManga = data.results;
+          } else {
+            console.error('Unexpected API response format:', data);
+            return;
+          }
+          
+          console.log('All manga count:', allManga.length);
+          console.log('Looking for mangaId:', decodeURIComponent(mangaId));
+          
+          const foundManga = allManga.find(m => m.id === decodeURIComponent(mangaId));
+          console.log('Found manga:', foundManga);
+          
+          if (foundManga) {
+            setManga(foundManga);
+            setMangaDetails(foundManga);
+          } else {
+            console.error('Manga not found in collections');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch manga:', error);
+      }
+    };
+
+    if (mangaId) {
+      fetchMangaFromCollections();
+    }
+  }, [propManga, mangaId]);
+
+  // Handle back navigation
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate(-1);
+    }
+  };
 
   // Toggle library status
   const toggleLibrary = () => {
@@ -100,8 +183,48 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
   // Handle chapter click - mark as read and navigate
   const handleChapterClick = (chapter) => {
-    // Add to read chapters
+    // Add to read chapters (local state)
     setReadChapters(prev => new Set([...prev, chapter.id]));
+    
+    // Save to read chapters tracking (separate from history)
+    const readChaptersKey = `manga_read_chapters_${manga.id}`;
+    try {
+      const existingReadChapters = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+      if (!existingReadChapters.includes(chapter.id)) {
+        existingReadChapters.push(chapter.id);
+        localStorage.setItem(readChaptersKey, JSON.stringify(existingReadChapters));
+        console.log('Chapter marked as read:', chapter.id);
+      }
+    } catch (err) { 
+      console.error("Read chapters error:", err); 
+    }
+    
+    // Also save to history for the "last read" functionality
+    const HISTORY_KEY = 'manga_reader_history_v1';
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+
+      const nextItem = {
+        mangaId: manga.id,
+        title: manga.title,
+        coverUrl: manga.cover_url,
+        manga: manga,
+        lastChapterId: chapter?.id || chapter, 
+        lastChapterLabel: chapter?.chapter_num ? `Chapter ${chapter.chapter_num}` : 'Last read',
+        lastReadAt: Date.now(),
+      };
+
+      const existingIdx = list.findIndex((x) => x?.mangaId === manga.id);
+      if (existingIdx >= 0) {
+        list[existingIdx] = { ...list[existingIdx], ...nextItem };
+      } else {
+        list.push(nextItem);
+      }
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    } catch (err) { 
+      console.error("History Error:", err); 
+    }
     
     // Call the original onChapterRead function
     onChapterRead(chapter);
@@ -111,11 +234,30 @@ const Details = ({ manga, onBack, onChapterRead }) => {
   const toggleChapterReadStatus = (chapterId) => {
     setReadChapters(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(chapterId)) {
-        newSet.delete(chapterId);
-      } else {
-        newSet.add(chapterId);
+      const readChaptersKey = `manga_read_chapters_${manga.id}`;
+      
+      try {
+        const existingReadChapters = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+        
+        if (newSet.has(chapterId)) {
+          // Remove from read chapters
+          newSet.delete(chapterId);
+          const updatedChapters = existingReadChapters.filter(id => id !== chapterId);
+          localStorage.setItem(readChaptersKey, JSON.stringify(updatedChapters));
+          console.log('Chapter marked as unread:', chapterId);
+        } else {
+          // Add to read chapters
+          newSet.add(chapterId);
+          if (!existingReadChapters.includes(chapterId)) {
+            existingReadChapters.push(chapterId);
+            localStorage.setItem(readChaptersKey, JSON.stringify(existingReadChapters));
+            console.log('Chapter marked as read:', chapterId);
+          }
+        }
+      } catch (err) { 
+        console.error("Read chapters error:", err); 
       }
+      
       return newSet;
     });
   };
@@ -381,18 +523,24 @@ const Details = ({ manga, onBack, onChapterRead }) => {
   const fetchChapters = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      if (!forceRefresh) {
-        const cached = readDetailsCache(manga.id);
-        if (cached) {
-          setMangaDetails((prev) => ({
-            ...prev,
-            description: cached.description || prev.description,
-            status: cached.status || prev.status,
-          }));
-          setChapters(sortChapters(cached.chapters));
-          setLoading(false);
-          return;
-        }
+      // Always check cache first for instant display
+      const cached = readDetailsCache(manga.id);
+      if (cached && !forceRefresh) {
+        console.log('📦 Using cached chapters for instant display');
+        setMangaDetails((prev) => ({
+          ...prev,
+          description: cached.description || prev.description,
+          status: cached.status || prev.status,
+        }));
+        setChapters(sortChapters(cached.chapters));
+        setLoading(false);
+        return;
+      }
+      
+      // Show cached data immediately while fetching fresh data
+      if (cached && forceRefresh) {
+        console.log('📦 Showing cached data while updating...');
+        setChapters(sortChapters(cached.chapters));
       }
 
       // OPTIMIZATION: Check if we already have chapters from Home page navigation
@@ -412,11 +560,11 @@ const Details = ({ manga, onBack, onChapterRead }) => {
 
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 45000) // 45s timeout for Selenium scraping
+        setTimeout(() => reject(new Error('Request timeout')), 15000) // 15s timeout for faster response
       );
 
       const response = await Promise.race([
-        fetch(API_ENDPOINTS.MANGA(manga.id)),
+        fetch(`${API_ENDPOINTS.MANGA(manga.id)}?refresh=true`),
         timeoutPromise
       ]);
       if (response.ok) {
@@ -468,13 +616,13 @@ const Details = ({ manga, onBack, onChapterRead }) => {
     }
   };
 
-  if (loading) {
+  if (loading || !manga) {
     return (
       <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
         <div className="max-w-[1600px] mx-auto">
           {/* Back Navigation */}
           <button 
-            onClick={onBack}
+            onClick={handleBack}
             className="flex items-center space-x-2 text-gray-400 mb-8 hover:text-white transition-colors duration-200"
           >
             <ChevronLeft size={20} />
@@ -573,7 +721,7 @@ const Details = ({ manga, onBack, onChapterRead }) => {
       <div className="max-w-[1600px] mx-auto">
         {/* Back Navigation */}
         <button 
-          onClick={onBack}
+          onClick={handleBack}
           className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors mb-8 group"
         >
           <ChevronLeft size={20} />
@@ -703,11 +851,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
                                     }`}>
                                       {getChapterDisplayTitle(chapter)}
                                     </h3>
-                                    {isRead && (
-                                      <span className="flex-shrink-0 text-xs bg-gradient-to-r from-green-600/20 to-green-500/20 text-green-400 px-2 py-1 rounded-full font-medium border border-green-600/30">
-                                        ✓ READ
-                                      </span>
-                                    )}
                                   </div>
                                   <div className="flex items-center space-x-3 text-xs">
                                     <div className="flex items-center space-x-1 text-gray-500">
@@ -717,14 +860,6 @@ const Details = ({ manga, onBack, onChapterRead }) => {
                                       </span>
                                     </div>
                                   </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2 ml-4">
-                                <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                  isRead 
-                                    ? 'bg-green-500 shadow-lg shadow-green-500/50' 
-                                    : 'bg-gray-600 group-hover:bg-blue-500 group-hover:shadow-lg group-hover:shadow-blue-500/50'
-                                }`}>
                                 </div>
                               </div>
                             </div>

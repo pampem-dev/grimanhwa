@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {Moon, Sun, Download, Trash2, Shield, Bell, Globe, ChevronRight, Info, ExternalLink, BookOpen } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Settings = () => {
-  const [darkMode, setDarkMode] = useState(true);
+  const { darkMode, toggleDarkMode } = useTheme();
   const [autoDownload, setAutoDownload] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
@@ -13,7 +14,6 @@ const Settings = () => {
   // Load settings from localStorage
   useEffect(() => {
     const savedSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
-    if (savedSettings.darkMode !== undefined) setDarkMode(savedSettings.darkMode);
     if (savedSettings.autoDownload !== undefined) setAutoDownload(savedSettings.autoDownload);
     if (savedSettings.notifications !== undefined) setNotifications(savedSettings.notifications);
     if (savedSettings.autoPlay !== undefined) setAutoPlay(savedSettings.autoPlay);
@@ -24,8 +24,9 @@ const Settings = () => {
 
   // Save settings to localStorage
   useEffect(() => {
+    const existingSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
     const settings = {
-      darkMode,
+      ...existingSettings, // Keep existing settings like darkMode
       autoDownload,
       notifications,
       autoPlay,
@@ -34,7 +35,7 @@ const Settings = () => {
       language
     };
     localStorage.setItem('appSettings', JSON.stringify(settings));
-  }, [darkMode, autoDownload, notifications, autoPlay, readingMode, fontSize, language]);
+  }, [autoDownload, notifications, autoPlay, readingMode, fontSize, language]);
 
   const handleClearCache = () => {
     if (window.confirm('Clear all cached data? This will remove offline content but keep your library and history.')) {
@@ -98,7 +99,7 @@ const Settings = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => setDarkMode(!darkMode)}
+                  onClick={toggleDarkMode}
                   className={`relative w-12 h-6 rounded-full transition-colors ${
                     darkMode ? 'bg-blue-600' : 'bg-gray-600'
                   }`}
@@ -110,7 +111,7 @@ const Settings = () => {
               </div>
 
               {/* Font Size */}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <p className="font-medium text-white">Font Size</p>
                   <p className="text-sm text-gray-400">Adjust reading text size</p>
@@ -130,19 +131,19 @@ const Settings = () => {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div> */}
             </div>
           </section>
 
           {/* Reading Section */}
-          <section className="mb-12">
+          {/* <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <BookOpen size={20} className="text-blue-400" />
               Reading
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4"> */}
               {/* Reading Mode */}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <p className="font-medium text-white">Reading Mode</p>
                   <p className="text-sm text-gray-400">Choose how chapters are displayed</p>
@@ -162,10 +163,10 @@ const Settings = () => {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
               {/* Auto Play */}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <p className="font-medium text-white">Auto Play</p>
                   <p className="text-sm text-gray-400">Automatically advance to next page</p>
@@ -182,17 +183,17 @@ const Settings = () => {
                 </button>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* Downloads Section */}
           <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Download size={20} className="text-blue-400" />
-              Downloads
+              Cache
             </h2>
             <div className="space-y-4">
               {/* Auto Download */}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <p className="font-medium text-white">Auto Download</p>
                   <p className="text-sm text-gray-400">Download chapters for offline reading</p>
@@ -207,7 +208,7 @@ const Settings = () => {
                     autoDownload ? 'translate-x-6' : 'translate-x-0'
                   }`} />
                 </button>
-              </div>
+              </div> */}
 
               {/* Clear Cache */}
               <button
@@ -227,14 +228,14 @@ const Settings = () => {
           </section>
 
           {/* Notifications Section */}
-          <section className="mb-12">
+          {/* <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Bell size={20} className="text-blue-400" />
               Notifications
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4"> */}
               {/* Notifications Toggle */}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <p className="font-medium text-white">Push Notifications</p>
                   <p className="text-sm text-gray-400">Get notified about new chapters</p>
@@ -251,17 +252,17 @@ const Settings = () => {
                 </button>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* Language Section */}
-          <section className="mb-12">
+          {/* <section className="mb-12">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Globe size={20} className="text-blue-400" />
               Language & Region
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4"> */}
               {/* Language Selection */}
-              <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+              {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
                 <div>
                   <p className="font-medium text-white">App Language</p>
                   <p className="text-sm text-gray-400">Choose display language</p>
@@ -283,7 +284,7 @@ const Settings = () => {
                 </div>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* About Section */}
           <section className="mb-12">
@@ -298,9 +299,6 @@ const Settings = () => {
                   <p className="font-medium text-white">grimanhwa</p>
                   <span className="text-sm text-gray-400">v1.0.0</span>
                 </div>
-                <p className="text-sm text-gray-400 mb-4">
-                  A modern manga reading application with offline support, library management, and customizable reading experience.
-                </p>
                 <div className="flex gap-4">
                   <button className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
                     <ExternalLink size={14} />

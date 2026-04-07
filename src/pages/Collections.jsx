@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown, ChevronDown } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 // Virtual scroll component for large lists
@@ -118,6 +118,29 @@ const MangaListItem = React.memo(({ manga, onClick, imageObserver }) => {
   );
 });
 
+// Skeleton loading components
+const MangaCardSkeleton = () => (
+  <div className="animate-pulse">
+    <div className="relative overflow-hidden rounded-xl">
+      <div className="w-full aspect-[3/4.5] bg-gray-700 rounded-xl"></div>
+    </div>
+    <div className="mt-2">
+      <div className="h-4 bg-gray-700 rounded"></div>
+    </div>
+  </div>
+);
+
+const MangaListItemSkeleton = () => (
+  <div className="animate-pulse">
+    <div className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-xl">
+      <div className="w-16 h-20 bg-gray-700 rounded"></div>
+      <div className="flex-1">
+        <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+      </div>
+    </div>
+  </div>
+);
+
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [allManga, setAllManga] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -125,8 +148,10 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [itemsPerPage] = useState(20); // 19 items per page to match AsuraScans (322/17 ≈ 19)
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('title'); // 'title', 'rating', 'latest'
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc', 'desc'
+  const [sortBy, setSortBy] = useState('---'); // '---', 'title-asc', 'title-desc'
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [estimatedTotalPages, setEstimatedTotalPages] = useState(17); // Start with actual estimate
+  const [backgroundLoading, setBackgroundLoading] = useState(false); // Track background loading
   const [mangaDetails, setMangaDetails] = useState({}); // Store basic manga info
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
@@ -134,6 +159,27 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   // Cache for API responses
   const apiCache = useRef(new Map());
   const infoCache = useRef(new Map());
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sort options
+  const sortOptions = [
+    { value: '---', label: 'No Sort' },
+    { value: 'title-asc', label: 'Sort A to Z' },
+    { value: 'title-desc', label: 'Sort Z to A' }
+  ];
+
+  const getCurrentOption = () => sortOptions.find(option => option.value === sortBy);
   
   // Intersection Observer for lazy loading images
   const imageObserverRef = useRef(null);
@@ -170,8 +216,8 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       const cached = localStorage.getItem(`collectionsCache_${key}`);
       if (cached) {
         const data = JSON.parse(cached);
-        // Check if cache is still valid (5 minutes)
-        if (Date.now() - data.timestamp < 5 * 60 * 1000) {
+        // Check if cache is still valid (1 hour)
+        if (Date.now() - data.timestamp < 60 * 60 * 1000) {
           return data;
         }
       }
@@ -204,6 +250,8 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     // Early return if no data
     if (allManga.length === 0) return [];
     
+    console.log(`🔍 Sorting: total manga=${allManga.length}, sortBy=${sortBy}`);
+    
     // Use Web Worker for heavy filtering if available
     if (window.Worker && allManga.length > 1000) {
       // For very large datasets, consider using Web Workers
@@ -226,37 +274,35 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
     
     // Apply sorting (optimized)
-    const sorted = [...filtered].sort((a, b) => {
+    const sorted = sortBy === '---' ? [...filtered] : [...filtered].sort((a, b) => {
       let aValue, bValue;
       
       switch (sortBy) {
-        case 'title':
+        case 'title-asc':
           aValue = a._cleanTitle || (a._cleanTitle = cleanTitle(a.title));
           bValue = b._cleanTitle || (b._cleanTitle = cleanTitle(b.title));
           aValue = a._lowerCleanTitle || (a._lowerCleanTitle = aValue.toLowerCase());
           bValue = b._lowerCleanTitle || (b._lowerCleanTitle = bValue.toLowerCase());
-          return sortOrder === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        case 'rating':
-          // Rating is disabled, always return 0
-          return 0;
-        case 'latest':
-          aValue = a.id || '';
-          bValue = b.id || '';
-          return sortOrder === 'asc' 
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
+          return aValue.localeCompare(bValue);
+        case 'title-desc':
+          aValue = a._cleanTitle || (a._cleanTitle = cleanTitle(a.title));
+          bValue = b._cleanTitle || (b._cleanTitle = cleanTitle(b.title));
+          aValue = a._lowerCleanTitle || (a._lowerCleanTitle = aValue.toLowerCase());
+          bValue = b._lowerCleanTitle || (b._lowerCleanTitle = bValue.toLowerCase());
+          return bValue.localeCompare(aValue);
         default:
           return 0;
       }
     });
     
+    console.log(`📊 Sorted result: ${sorted.length} manga`);
     return sorted;
-  }, [allManga, searchQuery, sortBy, sortOrder]);
+  }, [allManga, searchQuery, sortBy]);
 
   // Update pagination when filtered results change
-  const filteredTotalPages = Math.ceil(filteredAndSortedManga.length / itemsPerPage);
+  const actualTotalPages = Math.ceil(filteredAndSortedManga.length / itemsPerPage);
+  // Use estimated pages during initial loading or background loading
+  const filteredTotalPages = (loading || backgroundLoading) ? estimatedTotalPages : Math.max(actualTotalPages, estimatedTotalPages);
   const filteredCurrentItems = filteredAndSortedManga.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -265,7 +311,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   // Reset to page 1 when search or sort changes (optimized)
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, sortBy, sortOrder]);
+  }, [searchQuery, sortBy]);
 
   // Remove debounce for faster typing - DISABLED
   // const debouncedSearch = useCallback(
@@ -401,40 +447,130 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       setFetchError(null);
       if (forceRefresh) setIsRefreshing(true);
       
-      // Use the new browse-all endpoint to get all manga from all pages
-      const apiUrl = API_ENDPOINTS.BROWSE_ALL;
+      // Check cache first for instant display
+      const cached = apiCache.current.get(cacheKey) || getPersistentCache(cacheKey);
+      if (cached && !forceRefresh) {
+        console.log('📦 Using cached collections for instant display');
+        setAllManga(cached.allManga);
+        setLoading(false);
+        return;
+      }
       
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // Reduced timeout for faster failure
+      // Show cached data while fetching fresh data
+      if (cached && forceRefresh) {
+        console.log('📦 Showing cached collections while updating...');
+        setAllManga(cached.allManga);
+      }
       
-      const response = await fetch(apiUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      // Progressive loading - fetch page 1 first, then load more pages in background
+      let allMangaData = [];
+      const maxPages = 20; // Load up to 20 pages
       
-      if (response.ok) {
-        const data = await response.json();
-        const mangaList = data.manga || [];
+      // Function to load remaining pages in background (defined first)
+      const loadMorePages = async (startPage, endPage, existingData) => {
+        console.log(`🔄 loadMorePages called: start=${startPage}, end=${endPage}, existing=${existingData.length}`);
+        let mangaData = [...existingData];
         
-        if (mangaList.length === 0) {
-          throw new Error('No manga data received from Collections API');
+        for (let page = startPage; page <= endPage; page++) {
+          try {
+            console.log(`📄 Loading page ${page} in background...`);
+            const pageUrl = `http://127.0.0.1:8000/api/kaynscan/browse/?page=${page}`;
+            console.log(`🔗 Fetching: ${pageUrl}`);
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            
+            const response = await fetch(pageUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            console.log(`📡 Response status: ${response.status} for page ${page}`);
+            
+            if (response.ok) {
+              const data = await response.json();
+              const pageManga = data.manga || [];
+              console.log(`📊 Page ${page} data:`, { manga: pageManga.length, totalManga: data.total });
+              
+              if (pageManga.length === 0) {
+                console.log(`🏁 No more manga found on page ${page}, stopping`);
+                break;
+              }
+              
+              mangaData = [...mangaData, ...pageManga];
+              console.log(`✅ Page ${page} loaded: ${pageManga.length} manga, total: ${mangaData.length}`);
+              
+              // Don't update estimated pages downward - we know there are 17 pages total
+              const currentEstimated = Math.ceil(mangaData.length / itemsPerPage);
+              if (currentEstimated > estimatedTotalPages) {
+                setEstimatedTotalPages(currentEstimated);
+                console.log(`📄 Updated pagination: ${currentEstimated} pages estimated`);
+              } else {
+                console.log(`📄 Keeping pagination at ${estimatedTotalPages} pages (loaded: ${currentEstimated})`);
+              }
+              
+              // Update display with new data
+              setAllManga([...mangaData]);
+              
+              // Small delay between pages
+              await new Promise(resolve => setTimeout(resolve, 200));
+            } else {
+              console.warn(`⚠️ Page ${page} failed: ${response.status}`);
+            }
+          } catch (err) {
+            console.warn(`⚠️ Error loading page ${page}:`, err);
+          }
         }
         
-        
-        setAllManga(mangaList);
-        
-        // Cache the processed data in both memory and persistent storage
-        const cacheData = {
-          allManga: mangaList,
+        // Cache final data
+        const finalCacheData = {
+          allManga: mangaData,
           timestamp: Date.now()
         };
-        apiCache.current.set(cacheKey, cacheData);
-        setPersistentCache(cacheKey, cacheData);
+        apiCache.current.set(cacheKey, finalCacheData);
+        setPersistentCache(cacheKey, finalCacheData);
         
-        setLoading(false);
-      } else {
-        console.error('Collections API response not ok:', response.status, response.statusText);
-        throw new Error(`Collections API request failed: ${response.status}`);
+        console.log(`🎉 All pages loaded! Total manga: ${mangaData.length}`);
+        setBackgroundLoading(false);
+      };
+      
+      // Fetch page 1 immediately and display it
+      try {
+        console.log('� Fetching page 1 immediately...');
+        const page1Url = 'http://127.0.0.1:8000/api/kaynscan/browse/?page=1';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Short timeout for first page
+        
+        const response = await fetch(page1Url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const page1Manga = data.manga || [];
+          allMangaData = [...page1Manga];
+          
+          console.log(`✅ Page 1 loaded: ${page1Manga.length} manga`);
+          setAllManga(allMangaData); // Display page 1 immediately!
+          setLoading(false); // Stop loading after page 1
+          
+          // Cache initial data
+          const cacheData = {
+            allManga: allMangaData,
+            timestamp: Date.now()
+          };
+          apiCache.current.set(cacheKey, cacheData);
+          setPersistentCache(cacheKey, cacheData);
+          
+          // Continue loading more pages in background
+          console.log('🔄 Starting background loading for pages 2-20...');
+          setBackgroundLoading(true);
+          loadMorePages(2, maxPages, allMangaData);
+        } else {
+          throw new Error(`Page 1 request failed: ${response.status}`);
+        }
+      } catch (err) {
+        console.error("Page 1 fetch error:", err);
+        throw err;
       }
+      
     } catch (err) {
       console.error("Collections fetch error:", err);
       setFetchError(err.message);
@@ -526,9 +662,11 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
   };
 
-  // Optimized grid view with lazy loading
+  // Optimized grid view with lazy loading and skeleton
   const renderGridView = () => {
     const items = filteredCurrentItems;
+    const maxPageItems = itemsPerPage;
+    const isPageLoading = backgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
     
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -540,13 +678,19 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
             imageObserver={imageObserverRef.current}
           />
         ))}
+        {/* Show skeleton loading if page is still loading */}
+        {isPageLoading && Array.from({ length: maxPageItems - items.length }).map((_, index) => (
+          <MangaCardSkeleton key={`skeleton-${index}`} />
+        ))}
       </div>
     );
   };
 
-  // Optimized list view with lazy loading
+  // Optimized list view with lazy loading and skeleton
   const renderListView = () => {
     const items = filteredCurrentItems;
+    const maxPageItems = itemsPerPage;
+    const isPageLoading = backgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
     
     return (
       <div className="space-y-3">
@@ -557,6 +701,10 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
             onClick={() => onMangaDetails(manga)}
             imageObserver={imageObserverRef.current}
           />
+        ))}
+        {/* Show skeleton loading if page is still loading */}
+        {isPageLoading && Array.from({ length: maxPageItems - items.length }).map((_, index) => (
+          <MangaListItemSkeleton key={`skeleton-list-${index}`} />
         ))}
       </div>
     );
@@ -638,52 +786,69 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           </div>
 
           {/* Sort Controls */}
-          <div className="flex gap-2">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:bg-white/20 transition-colors"
-            >
-              <option value="title" className="bg-gray-900 text-white">Sort by Title</option>
-              <option value="rating" className="bg-gray-900 text-white">Sort by Rating</option>
-            </select>
+          <div className="flex gap-2 items-center">
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-3 px-4 py-2.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white hover:bg-white/[0.06] transition-all text-sm focus:border-blue-500/50 outline-none"
+              >
+                <span>{getCurrentOption()?.label}</span>
+                <ChevronDown 
+                  size={16} 
+                  className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-            <button
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-colors flex items-center gap-2"
-            >
-              <ArrowUpDown size={16} />
-              {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-            </button>
+              {/* Dropdown Menu */}
+              {dropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-[#050505] border border-white/5 rounded-2xl shadow-lg z-50">
+                  {sortOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setSortBy(option.value);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                        sortBy === option.value
+                          ? 'bg-blue-500/20 text-white border-l-2 border-blue-500'
+                          : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* View Mode Toggle - Right Side */}
+            <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1 ml-auto">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white/10 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Grid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white/10 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="flex justify-end mb-6">
-          <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 rounded-md transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-white/10 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <Grid size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-2 rounded-md transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-white/10 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <List size={16} />
-            </button>
-          </div>
-        </div>
-
+        
         {/* Content */}
         {viewMode === 'grid' ? renderGridView() : renderListView()}
 

@@ -4,8 +4,10 @@ import { Clock, TrendingUp, Crown, ChevronLeft, ChevronRight } from 'lucide-reac
 import { API_ENDPOINTS } from '../config/api';
 import MangaCard from '../components/MangaCard';
 import HeroCarousel from '../components/HeroCarousel';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Home = ({ onMangaSelect, onMangaDetails }) => {
+  const { darkMode } = useTheme();
   const [featuredManga, setFeaturedManga] = useState([]);
   const [trendingManga, setTrendingManga] = useState([]);
   const [recentManga, setRecentManga] = useState([]);
@@ -408,7 +410,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   const renderTrending = () => (
     <div>
-      <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
         <TrendingUp className="text-blue-500" size={20} />
         Trending Today
       </h2>
@@ -430,7 +432,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   const renderLatest = () => (
     <div id="latest-updates-section">
-      <h2 className="text-xl font-bold mb-6 text-white flex items-center gap-2">
+      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
         <Clock className="text-blue-500" size={20} />
         Latest Updates ({allMangaList.length} total)
       </h2>
@@ -464,7 +466,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                     </div> */}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight">
+                    <p className={`font-bold line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {cleanTitle(manga.title)}
                     </p>
                     <p className="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-widest">
@@ -486,7 +488,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
             className={`p-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center ${
               currentPage === 1
                 ? 'bg-white/[0.02] text-gray-600 cursor-not-allowed border border-white/5'
-                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
+                : `${darkMode ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'} border border-white/10 hover:border-white/20`
             }`}
           >
             <ChevronLeft size={16} />
@@ -512,7 +514,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     currentPage === pageNum
                       ? 'bg-blue-600 text-white'
-                      : 'bg-white/10 text-white hover:bg-white/20'
+                      : `${darkMode ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'}`
                   }`}
                 >
                   {pageNum}
@@ -527,7 +529,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
             className={`p-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center ${
               currentPage === totalPages
                 ? 'bg-white/[0.02] text-gray-600 cursor-not-allowed border border-white/5'
-                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10 hover:border-white/20'
+                : `${darkMode ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-200 text-gray-900 hover:bg-gray-300'} border border-white/10 hover:border-white/20`
             }`}
           >
             <ChevronRight size={16} />
@@ -546,7 +548,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   const renderPopular = () => (
     <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-      <h2 className="text-lg font-bold mb-6 text-white flex items-center gap-2">
+      <h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
         <Crown className="text-yellow-500" size={18} />
         Popular
       </h2>
@@ -573,7 +575,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                   alt=""
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate uppercase tracking-tighter group-hover:text-blue-400">
+                  <p className={`text-sm font-bold truncate uppercase tracking-tighter group-hover:text-blue-400 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     {cleanTitle(manga.title)}
                   </p>
                   {/* <p className="text-[10px] text-gray-500 font-bold uppercase">Action, Fantasy</p> */}
@@ -586,7 +588,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className={`min-h-screen ${darkMode ? 'bg-[#050505] text-white' : 'bg-white text-gray-900'}`}>
       {/* Error Handling */}
       {fetchError && (
         <div className="bg-red-600/10 border border-red-600/20 text-red-400 p-4 m-4 rounded-lg">

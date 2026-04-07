@@ -1,5 +1,6 @@
 import React from 'react';
 import { API_ENDPOINTS } from '../config/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const SkeletonCard = () => (
   <div className="w-full space-y-3">
@@ -14,6 +15,7 @@ const SkeletonCard = () => (
 );
 
 const MangaCard = ({ title, coverUrl, onClick, isLoading = false }) => {
+  const { darkMode } = useTheme();
   if (isLoading) return <SkeletonCard />;
 
   const handleImageError = (e) => {
@@ -92,7 +94,7 @@ const MangaCard = ({ title, coverUrl, onClick, isLoading = false }) => {
 
         {/* TEXT CONTENT - Cleaner, removed the grey box */}
         <div className="px-1 transition-all duration-300">
-          <h3 className="text-sm font-bold text-gray-200 line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors uppercase tracking-tight">
+          <h3 className={`text-sm font-bold line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
             {cleanTitle(title)}
           </h3>
         </div>

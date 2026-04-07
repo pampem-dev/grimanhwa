@@ -1,13 +1,35 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Book, Trash2, Grid, List, Search, ArrowUpDown } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Book, Trash2, Grid, List, Search, ArrowUpDown, ChevronDown } from 'lucide-react';
 
 const Library = ({ onMangaSelect, onMangaDetails }) => {
   const [libraryManga, setLibraryManga] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('title'); // 'title', 'rating', 'dateAdded'
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc', 'desc'
+  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'title-asc', 'title-desc'
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sort options
+  const sortOptions = [
+    { value: 'newest', label: 'Newest' },
+    { value: 'oldest', label: 'Oldest' },
+    { value: 'title-asc', label: 'Sort A to Z' },
+    { value: 'title-desc', label: 'Sort Z to A' }
+  ];
+
+  const getCurrentOption = () => sortOptions.find(option => option.value === sortBy);
 
   // Load library from localStorage
   useEffect(() => {
@@ -33,26 +55,31 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
       let aValue, bValue;
       
       switch (sortBy) {
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case 'dateAdded':
+        case 'newest':
           aValue = new Date(a.dateAdded || 0);
           bValue = new Date(b.dateAdded || 0);
-          break;
-        default:
+          return bValue - aValue; // Newest first
+        case 'oldest':
+          aValue = new Date(a.dateAdded || 0);
+          bValue = new Date(b.dateAdded || 0);
+          return aValue - bValue; // Oldest first
+        case 'title-asc':
           aValue = a.title.toLowerCase();
           bValue = b.title.toLowerCase();
+          return aValue.localeCompare(bValue); // A to Z
+        case 'title-desc':
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+          return bValue.localeCompare(aValue); // Z to A
+        default:
+          aValue = new Date(a.dateAdded || 0);
+          bValue = new Date(b.dateAdded || 0);
+          return bValue - aValue; // Default to newest
       }
-      
-      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
     });
     
     return sorted;
-  }, [libraryManga, searchQuery, sortBy, sortOrder]);
+  }, [libraryManga, searchQuery, sortBy]);
 
   // Remove from library
   const removeFromLibrary = (mangaId) => {
@@ -215,7 +242,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
               <input
                 type="text"
-                placeholder="Search library..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/[0.03] border border-white/5 focus:border-blue-500/50 focus:bg-white/[0.06] outline-none transition-all text-sm"
@@ -224,52 +251,69 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
           </div>
 
           {/* Sort Controls */}
-          <div className="flex gap-2">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:bg-white/20 transition-colors"
-            >
-              <option value="title" className="bg-gray-900 text-white">Sort by Title</option>
-              <option value="dateAdded" className="bg-gray-900 text-white">Sort by Date Added</option>
-            </select>
+          <div className="flex gap-2 items-center">
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-3 px-4 py-2.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white hover:bg-white/[0.06] transition-all text-sm focus:border-blue-500/50 outline-none"
+              >
+                <span>{getCurrentOption()?.label}</span>
+                <ChevronDown 
+                  size={16} 
+                  className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
 
-            <button
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-colors flex items-center gap-2"
-            >
-              <ArrowUpDown size={16} />
-              {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-            </button>
+              {/* Dropdown Menu */}
+              {dropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-[#050505] border border-white/5 rounded-2xl shadow-lg z-50">
+                  {sortOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setSortBy(option.value);
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                        sortBy === option.value
+                          ? 'bg-blue-500/20 text-white border-l-2 border-blue-500'
+                          : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* View Mode Toggle - Right Side */}
+            <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1 ml-auto">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white/10 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Grid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 rounded-md transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white/10 text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="flex justify-end mb-6">
-          <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 rounded-md transition-colors ${
-                viewMode === 'grid' 
-                  ? 'bg-white/10 text-white' 
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <Grid size={16} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-2 rounded-md transition-colors ${
-                viewMode === 'list' 
-                  ? 'bg-white/10 text-white' 
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <List size={16} />
-            </button>
-          </div>
-        </div>
-
+        
         {/* Content */}
         {libraryManga.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 text-gray-500">

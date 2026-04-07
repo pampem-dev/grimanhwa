@@ -3,6 +3,7 @@ import { Home, Star, History } from 'lucide-react';
 import { Book, Settings} from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import Footer from './Footer';
+import { useTheme } from '../contexts/ThemeContext';
 
 const SearchResultSkeleton = () => (
   <div className="flex items-center space-x-3 p-3">
@@ -15,6 +16,7 @@ const SearchResultSkeleton = () => (
 );
 
 const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
+  const { darkMode } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -161,17 +163,17 @@ useEffect(() => {
   }, [currentPage]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div className={`min-h-screen ${darkMode ? 'bg-[#050505] text-white' : 'bg-white text-gray-900'}`}>
       <div className="flex flex-col min-h-0">
-        {(currentPage === 'home' || currentPage === 'history' || currentPage === 'collections' || currentPage === 'library' || currentPage === 'more') && (
-          <header className={`sticky top-0 bg-[#050505]/60 backdrop-blur-xl z-[300] transition-all duration-300 ${isScrolled ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}>
-            <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        {(currentPage === 'home' || currentPage === 'history' || currentPage === 'collections' || currentPage === 'library' || currentPage === 'settings') && (
+          <header className={`sticky top-0 ${darkMode ? 'bg-[#050505]/60' : 'bg-white/80'} backdrop-blur-xl z-[300] transition-all duration-300 ${isScrolled ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}>
+            <div className={`absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${darkMode ? 'via-white/10' : 'via-black/10'} to-transparent`} />
             <div className={`max-w-[1600px] mx-auto px-4 sm:px-10 ${isScrolled ? 'py-2' : 'py-4'}`}>
               {/* MOBILE: Updated UI */}
               <div className="sm:hidden flex flex-col gap-4">
                 <div className="flex justify-center">
                   <img 
-                    src="/grimanhwa.png" 
+                    src={darkMode ? "/grimanhwa.png" : "/grimanhwablack.png"}
                     alt="Grimanhwa" 
                     className="h-10 w-auto"
                   />
@@ -181,14 +183,14 @@ useEffect(() => {
                   <MobileNavItem icon={<Book size={20} />} active={currentPage === 'collections'} onClick={() => setCurrentPage('collections')} />
                   <MobileNavItem icon={<Star size={20} />} active={currentPage === 'library'} onClick={() => setCurrentPage('library')} />
                   <MobileNavItem icon={<History size={20} />} active={currentPage === 'history'} onClick={() => setCurrentPage('history')} />
-                  <MobileNavItem icon={<Settings size={20} />} active={currentPage === 'more'} onClick={() => setCurrentPage('more')} />
+                  <MobileNavItem icon={<Settings size={20} />} active={currentPage === 'settings'} onClick={() => setCurrentPage('settings')} />
                 </div>
               </div>
               {/* DESKTOP: Updated UI */}
               <div className="hidden sm:flex items-center justify-between w-full gap-8">
                 <div className="flex items-center gap-6">
                   <img 
-                    src="/grimanhwa.png" 
+                    src={darkMode ? "/grimanhwa.png" : "/grimanhwablack.png"}
                     alt="Grimanhwa" 
                     className="h-10 w-auto"
                   />
@@ -197,7 +199,7 @@ useEffect(() => {
                     <DesktopNavItem icon={<Book size={18} />} label="Collections" active={currentPage === 'collections'} onClick={() => setCurrentPage('collections')} />
                     <DesktopNavItem icon={<Star size={18} />} label="Library" active={currentPage === 'library'} onClick={() => setCurrentPage('library')} />
                     <DesktopNavItem icon={<History size={18} />} label="History" active={currentPage === 'history'} onClick={() => setCurrentPage('history')} />
-                    <DesktopNavItem icon={<Settings size={18} />} label="Settings" active={currentPage === 'more'} onClick={() => setCurrentPage('more')} />
+                    <DesktopNavItem icon={<Settings size={18} />} label="Settings" active={currentPage === 'settings'} onClick={() => setCurrentPage('settings')} />
                   </div>
                 </div>
               </div>
@@ -208,7 +210,7 @@ useEffect(() => {
         <main className="flex-1"> 
           {children}
         </main>
-        {(currentPage === 'home' || currentPage === 'history' || currentPage === 'collections' || currentPage === 'library' || currentPage === 'more') && <Footer />}
+        {(currentPage === 'home' || currentPage === 'history' || currentPage === 'collections' || currentPage === 'library' || currentPage === 'settings') && <Footer />}
       </div>
     </div>
   );
@@ -223,7 +225,7 @@ const DesktopNavItem = ({ icon, label, active, onClick }) => (
         : 'text-gray-500 hover:text-gray-300'
     }`}
   >
-    <span className={active ? 'text-indigo-500' : ''}>{icon}</span>
+    <span className={`transition-colors ${active ? 'text-indigo-500' : 'text-gray-500'}`}>{icon}</span>
     <span>{label}</span>
   </button>
 );
