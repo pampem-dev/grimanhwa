@@ -1,5 +1,5 @@
 // Central API configuration
-const API_BASE_URL = 'http://127.0.0.1:8000/';
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 //url for prod
 //  process.env.REACT_APP_API_URL ||
