@@ -102,96 +102,105 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
   // };
 
   // Render grid view
-  const renderGridView = () => (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {filteredAndSortedManga.map((manga, index) => {
-        return (
-          <div
-            key={manga.id}
-            className="group cursor-pointer flex flex-col"
-            onClick={() => onMangaDetails(manga)}
-          >
-            <div className="relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border border-white/5 transition-all duration-300 group-hover:border-white/20">
-              <img
-                src={manga.cover_url || manga.cover}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                alt={manga.title}
-                onError={(e) => {
-                  e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
-                }}
-              />
-              {/* <div className="absolute top-2 left-2 bg-[#050505]/80 backdrop-blur-sm px-2 py-1 rounded flex items-center gap-1 border border-white/10">
-                <Star size={10} className="text-yellow-400" fill="currentColor" />
-                <span className="text-[10px] font-bold text-white">{extractRating(manga.title)}</span>
-              </div> */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFromLibrary(manga.id);
+  const renderGridView = () => {
+    // Show "No results" message when search returns empty
+    if (searchQuery && filteredAndSortedManga.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 text-gray-500">
+          <div className="text-6xl mb-4">¯\_(°_o)_/¯</div>
+          <p className="text-xl font-medium mb-2">No results found</p>
+          <p className="text-sm">Try searching for something else</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {filteredAndSortedManga.map((manga, index) => {
+          return (
+            <div
+              key={manga.id}
+              className="group cursor-pointer flex flex-col"
+              onClick={() => onMangaDetails(manga)}
+            >
+              <div className="relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border border-white/5 transition-all duration-300 group-hover:border-white/20">
+                <img
+                  src={manga.cover_url || manga.cover}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  alt={manga.title}
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
                   }}
-                  className="p-1.5 bg-red-600/80 backdrop-blur-sm rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  <Trash2 size={12} className="text-white" />
-                </button>
+                />
+              </div>
+              {/* Title styling matching your screenshot: All caps, bold, truncated */}
+              <div className="px-1">
+                <h3 className="text-[11px] font-bold uppercase tracking-tight text-white leading-tight line-clamp-2 text-center group-hover:text-indigo-400 transition-colors">
+                  {manga.title}
+                </h3>
               </div>
             </div>
-            <div className="mt-2 text-center">
-              <h3 className="text-sm font-bold uppercase tracking-tight truncate text-white group-hover:text-blue-400 transition-colors">
-                {cleanTitle(manga.title)}
-              </h3>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+          );
+        })}
+      </div>
+    );
+  };
 
   // Render list view
-  const renderListView = () => (
-    <div className="space-y-3">
-      {filteredAndSortedManga.map((manga, index) => {
-        return (
-          <div
-            key={manga.id}
-            className="flex items-center gap-4 p-4 bg-gray-900/40 rounded-xl cursor-pointer transition-all border border-gray-800 hover:border-blue-500/50 hover:bg-blue-600/10 group"
-            onClick={() => onMangaDetails(manga)}
-          >
-            <div className="relative shrink-0">
-              <img
-                src={manga.cover_url || manga.cover}
-                className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
-                alt={manga.title}
-                onError={(e) => {
-                  e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
-                }}
-              />
-              {/* <div className="absolute top-1 left-1 bg-[#050505]/80 backdrop-blur-sm rounded px-1 py-0.5 text-[10px] font-bold text-yellow-400">
-                {extractRating(manga.title)}
-              </div> */}
-            </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-center">
-              <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight text-base">
-                {cleanTitle(manga.title)}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Added {manga.dateAdded ? new Date(manga.dateAdded).toLocaleDateString() : 'Recently'}
-              </p>
-            </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                removeFromLibrary(manga.id);
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-red-600/80 backdrop-blur-sm rounded-lg hover:bg-red-600"
+  const renderListView = () => {
+    // Show "No results" message when search returns empty
+    if (searchQuery && filteredAndSortedManga.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 text-gray-500">
+          <div className="text-6xl mb-4">¯\_(°_o)_/¯</div>
+          <p className="text-xl font-medium mb-2">No results found</p>
+          <p className="text-sm">Try searching for something else</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {filteredAndSortedManga.map((manga, index) => {
+          return (
+            <div
+              key={manga.id}
+              className="flex items-center gap-4 p-4 bg-gray-900/40 rounded-xl cursor-pointer transition-all border border-gray-800 hover:border-blue-500/50 hover:bg-blue-600/10 group"
+              onClick={() => onMangaDetails(manga)}
             >
-              <Trash2 size={16} className="text-white" />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
+              <div className="relative shrink-0">
+                <img
+                  src={manga.cover_url || manga.cover}
+                  className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
+                  alt={manga.title}
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
+                  }}
+                />
+              </div>
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight text-base">
+                  {cleanTitle(manga.title)}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Added {manga.dateAdded ? new Date(manga.dateAdded).toLocaleDateString() : 'Recently'}
+                </p>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeFromLibrary(manga.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-red-600/80 backdrop-blur-sm rounded-lg hover:bg-red-600"
+              >
+                <Trash2 size={16} className="text-white" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -228,7 +237,7 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
           <h1 className="text-3xl font-bold text-white">Library</h1>
           <div className="text-sm text-gray-400">
             {searchQuery ? 
-              `${filteredAndSortedManga.length} manga found` : 
+              `${filteredAndSortedManga.length} found` : 
               `${libraryManga.length} total`
             }
           </div>

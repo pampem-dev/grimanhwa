@@ -668,6 +668,17 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     const maxPageItems = itemsPerPage;
     const isPageLoading = backgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
     
+    // Show "No results" message when search returns empty
+    if (searchQuery && filteredAndSortedManga.length === 0 && !loading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 text-gray-500">
+          <div className="text-6xl mb-4">¯\_(°_o)_/¯</div>
+          <p className="text-xl font-medium mb-2">No results found</p>
+          <p className="text-sm">Try searching for something else</p>
+        </div>
+      );
+    }
+    
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {items.map((manga, index) => (
@@ -691,6 +702,17 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     const items = filteredCurrentItems;
     const maxPageItems = itemsPerPage;
     const isPageLoading = backgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
+    
+    // Show "No results" message when search returns empty
+    if (searchQuery && filteredAndSortedManga.length === 0 && !loading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-32 text-gray-500">
+          <div className="text-6xl mb-4">¯\_(°_o)_/¯</div>
+          <p className="text-xl font-medium mb-2">No results found</p>
+          <p className="text-sm">Try searching for something else</p>
+        </div>
+      );
+    }
     
     return (
       <div className="space-y-3">
