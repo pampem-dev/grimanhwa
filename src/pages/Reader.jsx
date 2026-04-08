@@ -586,7 +586,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                     className="p-3.5 rounded-2xl bg-gray-900/20 backdrop-blur-md border border-gray-700/20 text-white/60 hover:text-white transition-all shadow-2xl active:scale-90 whitespace-nowrap"
                     aria-label="Toggle info"
                   >
-                    {showInfo ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showInfo ? <Eye size={20} /> : <EyeOff size={20} />}
                   </button>
                   <button
                     onClick={scrollToCurrentChapter}

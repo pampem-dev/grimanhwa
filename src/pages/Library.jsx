@@ -106,10 +106,10 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {filteredAndSortedManga.map((manga, index) => {
         return (
-          <div 
+          <div
             key={manga.id}
             className="group cursor-pointer flex flex-col"
-            onClick={() => onMangaSelect(manga)}
+            onClick={() => onMangaDetails(manga)}
           >
             <div className="relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border border-white/5 transition-all duration-300 group-hover:border-white/20">
               <img
@@ -152,10 +152,10 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     <div className="space-y-3">
       {filteredAndSortedManga.map((manga, index) => {
         return (
-          <div 
+          <div
             key={manga.id}
             className="flex items-center gap-4 p-4 bg-gray-900/40 rounded-xl cursor-pointer transition-all border border-gray-800 hover:border-blue-500/50 hover:bg-blue-600/10 group"
-            onClick={() => onMangaSelect(manga)}
+            onClick={() => onMangaDetails(manga)}
           >
             <div className="relative shrink-0">
               <img

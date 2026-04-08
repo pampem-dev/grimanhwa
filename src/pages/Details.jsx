@@ -88,14 +88,14 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   // Check if manga is in library
   useEffect(() => {
     if (!manga?.id) return;
-    
+
     const libraryKey = 'mangaLibrary';
     const library = JSON.parse(localStorage.getItem(libraryKey) || '[]');
     const inLibrary = library.some(item => item.id === manga.id);
     setIsInLibrary(inLibrary);
   }, [manga?.id]);
 
-  // Fetch manga data if not provided via props
+  // Fetch manga data - optimized to use localStorage cache
   useEffect(() => {
     if (propManga) {
       setManga(propManga);
@@ -103,14 +103,32 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       return;
     }
 
-    // Fetch manga from collections if not provided
+    // Try to get manga from localStorage cache first
+    const cachedMangaKey = `cached_manga_${mangaId}`;
+    const cachedManga = localStorage.getItem(cachedMangaKey);
+
+    if (cachedManga) {
+      try {
+        const parsedManga = JSON.parse(cachedManga);
+        // Check if cache is still valid (24 hours)
+        const cacheAge = Date.now() - parsedManga.timestamp;
+        if (cacheAge < 24 * 60 * 60 * 1000) {
+          setManga(parsedManga.data);
+          setMangaDetails(parsedManga.data);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to parse cached manga:', err);
+      }
+    }
+
+    // Fetch manga from collections if not in cache
     const fetchMangaFromCollections = async () => {
       try {
         const response = await fetch(API_ENDPOINTS.BROWSE_ALL);
         if (response.ok) {
           const data = await response.json();
-          console.log('API Response:', data); // Debug log
-          
+
           // Handle different response formats
           let allManga = [];
           if (Array.isArray(data)) {
@@ -123,13 +141,17 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             console.error('Unexpected API response format:', data);
             return;
           }
-          
-          
+
           const foundManga = allManga.find(m => m.id === decodeURIComponent(mangaId));
-          
+
           if (foundManga) {
             setManga(foundManga);
             setMangaDetails(foundManga);
+            // Cache the found manga for future use
+            localStorage.setItem(cachedMangaKey, JSON.stringify({
+              data: foundManga,
+              timestamp: Date.now()
+            }));
           } else {
             console.error('Manga not found in collections');
           }

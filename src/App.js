@@ -61,6 +61,11 @@ function AppContent() {
 
   const handleMangaDetails = (manga) => {
     setDetailsManga(manga);
+    // Cache the manga for faster loading if user navigates directly via URL
+    localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+      data: manga,
+      timestamp: Date.now()
+    }));
     navigate(`/details/${encodeURIComponent(manga.id)}`);
   };
 
@@ -76,6 +81,11 @@ function AppContent() {
 
   const handleHistoryMangaOpen = (manga) => {
     setDetailsManga(manga);
+    // Cache the manga for faster loading if user navigates directly via URL
+    localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+      data: manga,
+      timestamp: Date.now()
+    }));
     navigate(`/details/${encodeURIComponent(manga.id)}`);
   };
 
@@ -98,12 +108,17 @@ function AppContent() {
   };
 
   return (
-    <Layout 
-      currentPage={getCurrentPage()} 
+    <Layout
+      currentPage={getCurrentPage()}
       setCurrentPage={(page) => navigate(`/${page}`)}
       onMangaSelect={(manga) => {
         setDetailsManga(manga);
         setActiveMangaId(null);
+        // Cache the manga for faster loading if user navigates directly via URL
+        localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+          data: manga,
+          timestamp: Date.now()
+        }));
         navigate(`/details/${encodeURIComponent(manga.id)}`);
       }}
     >
