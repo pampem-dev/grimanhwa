@@ -609,7 +609,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         <div className="bg-red-600/10 border border-red-600/20 text-red-400 p-4 m-4 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-bold">Error loading manga</p>
+              <p className="font-bold">Error loading</p>
               <p className="text-sm">{fetchError}</p>
             </div>
             <button

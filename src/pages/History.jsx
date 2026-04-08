@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Trash2, BookOpen } from 'lucide-react';
+import { Trash2, BookOpen, X } from 'lucide-react';
 
 const HISTORY_KEY = 'manga_reader_history_v1';
 
 const History = ({ onOpenManga }) => {
   const [items, setItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [pressTimer, setPressTimer] = useState(null);
 
   // Function to get the latest read chapter for a manga
   const getLatestReadChapter = useCallback((mangaId) => {
@@ -50,7 +53,79 @@ const History = ({ onOpenManga }) => {
     if (window.confirm("Are you sure you want to clear your reading history?")) {
       localStorage.removeItem(HISTORY_KEY);
       setItems([]);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
     }
+  };
+
+  const handleItemPress = (item, event) => {
+    event.preventDefault();
+    
+    if (isSelectionMode) {
+      // In selection mode, just toggle selection immediately
+      toggleItemSelection(item.mangaId);
+      return;
+    }
+
+    // Start long press timer for normal mode
+    const timer = setTimeout(() => {
+      setIsSelectionMode(true);
+      setSelectedItems(new Set([item.mangaId]));
+    }, 500); // 500ms for long press
+
+    setPressTimer(timer);
+  };
+
+  const handleItemRelease = (item, event) => {
+    // Clear the press timer
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      setPressTimer(null);
+    }
+
+    // If not in selection mode and it was a short press, navigate to manga
+    if (!isSelectionMode && event.type === 'click') {
+      onOpenManga?.(item.manga);
+    }
+  };
+
+  const toggleItemSelection = (mangaId) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(mangaId)) {
+        newSet.delete(mangaId);
+      } else {
+        newSet.add(mangaId);
+      }
+      
+      // Exit selection mode if no items selected
+      if (newSet.size === 0) {
+        setIsSelectionMode(false);
+      }
+      
+      return newSet;
+    });
+  };
+
+  const removeSelectedItems = () => {
+    if (selectedItems.size === 0) return;
+    
+    const message = selectedItems.size === 1 
+      ? "Are you sure you want to remove this item from history?"
+      : `Are you sure you want to remove ${selectedItems.size} items from history?`;
+    
+    if (window.confirm(message)) {
+      const updatedItems = items.filter(item => !selectedItems.has(item.mangaId));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedItems));
+      setItems(updatedItems);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+    }
+  };
+
+  const exitSelectionMode = () => {
+    setSelectedItems(new Set());
+    setIsSelectionMode(false);
   };
 
   const cleanTitle = (title) => {
@@ -66,18 +141,48 @@ const History = ({ onOpenManga }) => {
         {/* Header matching your Collections screenshot */}
         <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">History</h1>
-            <span className="text-xs text-gray-500 mt-2">{items.length} total</span>
+            {isSelectionMode ? (
+              <div className="flex items-center gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tracking-tight">{selectedItems.size}</span>
+                <span className="text-lg sm:text-xl text-gray-400">selected</span>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-3xl font-bold tracking-tight">History</h1>
+                <span className="text-xs text-gray-500 mt-2">{items.length} total</span>
+              </>
+            )}
           </div>
 
-          {items.length > 0 && (
-            <button
-              onClick={clearHistory}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
-            >
-              <Trash2 size={16} />
-              <span>Clear All</span>
-            </button>
+          {isSelectionMode ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exitSelectionMode}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
+              >
+                <X size={16} />
+                <span>Cancel</span>
+              </button>
+              {selectedItems.size > 0 && (
+                <button
+                  onClick={removeSelectedItems}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600/20 border border-red-500/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-all text-sm"
+                >
+                  <Trash2 size={16} />
+                  <span>Remove{selectedItems.size > 1 ? ` (${selectedItems.size})` : ''}</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            items.length > 0 && (
+              <button
+                onClick={clearHistory}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
+              >
+                <Trash2 size={16} />
+                <span>Clear All</span>
+              </button>
+            )
           )}
         </div>
 
@@ -92,14 +197,49 @@ const History = ({ onOpenManga }) => {
             {sortedItems.map((it) => {
               const displayTitle = cleanTitle(it.title);
               const latestChapter = getLatestReadChapter(it.mangaId);
+              const isSelected = selectedItems.has(it.mangaId);
+              
               return (
                 <div 
                   key={it.mangaId} 
-                  className="cursor-pointer group flex flex-col"
-                  onClick={() => onOpenManga?.(it.manga)}
+                  className={`cursor-pointer group flex flex-col relative ${
+                    isSelectionMode ? 'pointer-events-auto' : ''
+                  }`}
+                  onMouseDown={(e) => handleItemPress(it, e)}
+                  onMouseUp={(e) => handleItemRelease(it, e)}
+                  onTouchStart={(e) => handleItemPress(it, e)}
+                  onTouchEnd={(e) => handleItemRelease(it, e)}
+                  onClick={(e) => {
+                    // Only navigate if not in selection mode and no long press timer
+                    if (!isSelectionMode && !pressTimer) {
+                      onOpenManga?.(it.manga);
+                    }
+                  }}
                 >
+                  {/* Selection overlay */}
+                  {isSelectionMode && (
+                    <div className={`absolute inset-0 rounded-xl border-2 transition-all z-10 ${
+                      isSelected 
+                        ? 'border-white/20 bg-white/[0.03]' 
+                        : 'border-transparent'
+                    }`}>
+                      {/* Subtle selection indicator - just a corner highlight */}
+                      {isSelected && (
+                        <div className="absolute top-0 right-0 w-8 h-8">
+                          <div className="absolute top-1 right-1 w-1 h-1 bg-white rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   {/* Card Container */}
-                  <div className="relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border border-white/5 transition-all duration-300 group-hover:border-white/20">
+                  <div className={`relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border transition-all duration-300 ${
+                    isSelectionMode 
+                      ? isSelected 
+                        ? 'border-white/30 group-hover:border-white/40' 
+                        : 'border-white/5 group-hover:border-white/10'
+                      : 'border-white/5 group-hover:border-white/20'
+                  }`}>
                     <img
                       src={it.coverUrl}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -121,7 +261,13 @@ const History = ({ onOpenManga }) => {
                   
                   {/* Title styling matching your screenshot: All caps, bold, truncated */}
                   <div className="px-1">
-                    <h3 className="text-[11px] font-bold uppercase tracking-tight text-white leading-tight line-clamp-2 text-center group-hover:text-indigo-400 transition-colors">
+                    <h3 className={`text-[11px] font-bold uppercase tracking-tight leading-tight line-clamp-2 text-center transition-colors ${
+                      isSelectionMode 
+                        ? isSelected 
+                          ? 'text-white' 
+                          : 'text-white/50'
+                        : 'text-white group-hover:text-indigo-400'
+                    }`}>
                       {displayTitle}
                     </h3>
                   </div>
