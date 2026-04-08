@@ -115,16 +115,31 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   const extractChapterNumber = (chapter) => {
     if (!chapter) return '1';
+    if (chapter.number) return chapter.number;
     if (chapter.chapter_num) return chapter.chapter_num;
     
-    const title = chapter.title || '';
-    const match = title.match(/chapter\s*(\d+)/i);
-    if (match?.[1]) {
-      let num = match[1];
-      if (num.length > 3) num = num.slice(0, 3);
-      return num;
+    // Extract from URL (same as Details page)
+    const urlMatch = chapter?.id?.match(/chapter\/(\d+)/);
+    if (urlMatch?.[1]) {
+      return urlMatch[1];
     }
     
+    // Extract from title
+    const title = chapter.title || '';
+    
+    // Look for "Chapter X" followed by non-digit
+    const chapterMatch = title.match(/chapter\s*(\d{1,3})(?!\d)/i);
+    if (chapterMatch?.[1]) {
+      return chapterMatch[1];
+    }
+    
+    // Look for "Ch. X" followed by non-digit  
+    const chMatch = title.match(/ch\.?\s*(\d{1,3})(?!\d)/i);
+    if (chMatch?.[1]) {
+      return chMatch[1];
+    }
+    
+    // Fallback to any number
     const numberMatch = title.match(/(\d+)/);
     return numberMatch?.[1] || '1';
   };
