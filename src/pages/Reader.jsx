@@ -64,6 +64,9 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   const [currentPage, setCurrentPage] = useState({ chapterId: null, pageIndex: 0 });
   const [visiblePage, setVisiblePage] = useState({ chapterId: null, pageIndex: 0 }); // Real-time visible page
   
+  const [debouncedActiveChapterId, setDebouncedActiveChapterId] = useState(null);
+  const [lastPrefetchedChapter, setLastPrefetchedChapter] = useState(null);
+
   const scrollContainerRef = useRef(null);
   const observerTarget = useRef(null);
 
@@ -167,17 +170,46 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
-      console.log('🔍 Chapter data received:', { 
-        pages: data.pages?.length, 
-        firstPageUrl: data.pages?.[0] 
-      });
+      // console.log('🔍 Chapter data received:', { 
+      //   pages: data.pages?.length, 
+      //   firstPageUrl: data.pages?.[0] 
+      // });
       
       if (data.pages?.length > 0) {
         const chapterNum = getChapterNumber(id);
         
-        setChapters((prev) => (prev.some((ch) => ch.id === id) ? prev : [...prev, { id, pages: data.pages, chapterNum }]));
-        setLoadedIds((prev) => new Set(prev).add(id));
-        writeChapterCache(id, { pages: data.pages, chapterNum });
+        // Progressive loading: first 6 pages immediately, then the rest
+        const firstPages = data.pages.slice(0, 6);
+        const remainingPages = data.pages.slice(6);
+        
+        // Check if chapter already exists to prevent duplicates
+        const chapterExists = chapters.some(ch => ch.id === id);
+        
+        if (!chapterExists) {
+          // Load first 6 pages immediately for fast display
+          setChapters((prev) => {
+            // Double-check within the functional update to prevent race conditions
+            if (prev.some(ch => ch.id === id)) {
+              return prev; // Don't add if already exists
+            }
+            return [...prev, { id, pages: firstPages, chapterNum }];
+          });
+          setLoadedIds((prev) => new Set(prev).add(id));
+          writeChapterCache(id, { pages: firstPages, chapterNum });
+        }
+        
+        // Load remaining pages after a short delay (non-blocking)
+        if (remainingPages.length > 0) {
+          setTimeout(() => {
+            setChapters((prev) => prev.map(ch => 
+              ch.id === id 
+                ? { ...ch, pages: [...firstPages, ...remainingPages] }
+                : ch
+            ));
+            writeChapterCache(id, { pages: data.pages, chapterNum });
+            console.log('Loaded remaining pages:', remainingPages.length, 'pages for chapter:', chapterNum);
+          }, 300); // 300ms delay to not block UI
+        }
         
         // Reset hasReachedEnd when we successfully load a chapter
         if (!isPreload) {
@@ -187,12 +219,20 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         // --- AGGRESSIVE PRE-FETCH LOGIC ---
         // Pre-fetch multiple chapters ahead for seamless reading
         if (!isPreload && chapters.length < 5) {
-          // Pre-fetch next 2 chapters
+          // Pre-fetch next 2 chapters with consistent chapter number calculation
+          console.log('Initial pre-fetch from chapter:', chapterNum);
+          
           for (let i = 1; i <= 2; i++) {
-            const nextId = id.replace(/chapter\/\d+/i, `chapter/${chapterNum + i}`);
-            setTimeout(() => {
-              fetchChapter(nextId, true);
-            }, i * 1000); // Stagger pre-fetches
+            const nextChapterNum = chapterNum + i;
+            const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
+            
+            // Only fetch if not already loaded or being loaded
+            if (!loadedIds.has(nextId)) {
+              setTimeout(() => {
+                console.log('Pre-fetching chapter:', nextChapterNum);
+                fetchChapter(nextId, true);
+              }, i * 1000); // Stagger pre-fetches
+            }
           }
         }
       } else {
@@ -220,17 +260,25 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     if (chapterId && chapters.length === 0) fetchChapter(chapterId); 
   }, [chapterId, fetchChapter, chapters.length]);
 
-  // ULTRA-OPTIMIZED: Aggressive observer for seamless loading
+  // ULTRA-OPTIMIZED: Dynamic observer for seamless loading based on current chapter
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && !isLoadingNext && chapters.length > 0 && !hasReachedEnd) {
-          const last = chapters[chapters.length - 1];
+          // Get the current active chapter for dynamic pre-fetching
+          const currentChapter = chapters.find(ch => ch.id === activeChapterId) || chapters[chapters.length - 1];
           
-          // Pre-fetch multiple chapters ahead
+          // Pre-fetch consecutive chapters with more reliable chapter number calculation
+          const currentChapterNum = getChapterNumber(currentChapter.id);
+          console.log('Pre-fetching next 3 chapters from current chapter:', currentChapterNum);
+          
           for (let i = 1; i <= 3; i++) {
-            const nextId = last.id.replace(/chapter\/\d+/i, `chapter/${last.chapterNum + i}`);
+            const nextChapterNum = currentChapterNum + i; // Next consecutive chapter
+            const nextId = currentChapter.id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
+            
+            // Only fetch if not already loaded or being loaded
             if (!loadedIds.has(nextId) && chapters.length < 6) {
+              console.log('Pre-fetching chapter:', nextChapterNum);
               fetchChapter(nextId, i > 1); // Only show spinner for immediate next chapter
             }
           }
@@ -240,7 +288,47 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     );
     if (observerTarget.current) observer.observe(observerTarget.current);
     return () => observer.disconnect();
-  }, [chapters, isLoadingNext, fetchChapter, loadedIds, hasReachedEnd]);
+  }, [chapters, isLoadingNext, fetchChapter, loadedIds, hasReachedEnd, activeChapterId]);
+
+  // Trigger pre-fetch when active chapter changes (with debouncing and duplicate check)
+  useEffect(() => {
+    if (debouncedActiveChapterId && chapters.length > 0 && !isLoadingNext) {
+      const currentChapter = chapters.find(ch => ch.id === debouncedActiveChapterId);
+      
+      if (currentChapter) {
+        const currentChapterNum = getChapterNumber(currentChapter.id);
+        
+        // Skip if we already pre-fetched this chapter recently
+        if (lastPrefetchedChapter === currentChapterNum) {
+          return;
+        }
+        
+        console.log('Chapter started - pre-fetching next 3 chapters from:', currentChapterNum);
+        setLastPrefetchedChapter(currentChapterNum);
+        
+        // Pre-fetch consecutive chapters: 20, 21, 22...
+        for (let i = 1; i <= 3; i++) {
+          const nextChapterNum = currentChapterNum + i; // Next consecutive chapter
+          const nextId = currentChapter.id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
+          
+          // Only fetch if not already loaded or being loaded
+          if (!loadedIds.has(nextId) && chapters.length < 6) {
+            console.log('Pre-fetching chapter:', nextChapterNum);
+            fetchChapter(nextId, true); // Always silent pre-fetch
+          }
+        }
+      }
+    }
+  }, [debouncedActiveChapterId, chapters, loadedIds, isLoadingNext, fetchChapter, lastPrefetchedChapter]);
+
+  // Debounce active chapter updates to prevent infinite loops
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedActiveChapterId(activeChapterId);
+    }, 500); // 500ms debounce
+    
+    return () => clearTimeout(timer);
+  }, [activeChapterId]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -332,7 +420,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     );
 
     const pages = document.querySelectorAll('[data-page-id]');
-    console.log('📍 Found pages to track:', pages.length);
+    // console.log('📍 Found pages to track:', pages.length);
     pages.forEach((page) => observer.observe(page));
     
     // Also observe the last page of each chapter for end detection
@@ -418,7 +506,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
             const pageIndex = parseInt(pageId.substring(lastDashIndex + 1));
             
             if (!isNaN(pageIndex)) {
-              console.log('🎯 Scroll backup - updating visible page:', { chapterId, pageIndex });
               setVisiblePage({ chapterId, pageIndex });
               setActiveChapterId(chapterId);
             }
@@ -475,13 +562,13 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     const displayChapterId = visiblePage.chapterId || activeChapterId;
     const displayPageIndex = visiblePage.pageIndex !== null ? visiblePage.pageIndex : (currentPage.pageIndex || 0);
     
-    console.log('🔍 Position debug:', { 
-      visiblePage, 
-      activeChapterId, 
-      currentPage, 
-      displayChapterId, 
-      displayPageIndex 
-    });
+    // console.log('🔍 Position debug:', { 
+    //   visiblePage, 
+    //   activeChapterId, 
+    //   currentPage, 
+    //   displayChapterId, 
+    //   displayPageIndex 
+    // });
     
     if (!displayChapterId) return 'Loading...';
     

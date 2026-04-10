@@ -1,4 +1,5 @@
 import React from 'react';
+import { Star } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -14,7 +15,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-const MangaCard = ({ title, coverUrl, onClick, isLoading = false }) => {
+const MangaCard = ({ title, coverUrl, onClick, isLoading = false, rating }) => {
   const { darkMode } = useTheme();
   if (isLoading) return <SkeletonCard />;
 
@@ -80,12 +81,14 @@ const MangaCard = ({ title, coverUrl, onClick, isLoading = false }) => {
           )}
 
           {/* Rating Badge - Top Left */}
-          {/* <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/80 backdrop-blur-md border border-white/10 px-2 py-1 rounded-lg">
-            <Star size={10} className="text-yellow-400" fill="currentColor" />
-            <span className="text-[10px] font-black text-white leading-none">
-              {extractRating(title)}
-            </span>
-          </div> */}
+          {rating && (
+            <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/80 backdrop-blur-md border border-white/10 px-2 py-1 rounded-lg">
+              <Star size={10} className="text-yellow-400" fill="currentColor" />
+              <span className="text-[10px] font-black text-white leading-none">
+                {rating}
+              </span>
+            </div>
+          )}
 
           {/* Bottom Gradient Overlay (For text readability on hover) */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300" />

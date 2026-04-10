@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List } from 'lucide-react';
+import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 
 const Details = ({ manga: propManga, onBack, onChapterRead }) => {
@@ -13,6 +13,9 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   const [mangaDetails, setMangaDetails] = useState(propManga);
   const [readChapters, setReadChapters] = useState(new Set()); // Track read chapters
   const [isInLibrary, setIsInLibrary] = useState(false); // Track if manga is in library
+  
+  // Swipe state
+  const [swipeState, setSwipeState] = useState({ chapterId: null, startX: 0, translateX: 0 });
 
   const DETAILS_CACHE_TTL_MS = 60 * 60 * 1000;
 
@@ -64,7 +67,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     const readChapterIds = new Set(readChaptersData);
     
     setReadChapters(readChapterIds);
-    console.log('Read chapters loaded:', readChapterIds.size, 'chapters for manga:', manga.id);
+    // console.log('Read chapters loaded:', readChapterIds.size, 'chapters for manga:', manga.id);
   }, [manga?.id]);
 
   // Get saved page position for a chapter
@@ -219,6 +222,8 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     }
     
     // Also save to history for the "last read" functionality
+    
+    // Also save to history for the "last read" functionality
     const HISTORY_KEY = 'manga_reader_history_v1';
     try {
       const raw = localStorage.getItem(HISTORY_KEY);
@@ -273,12 +278,50 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             console.log('Chapter marked as read:', chapterId);
           }
         }
-      } catch (err) { 
-        console.error("Read chapters error:", err); 
+      } catch (err) {
+        console.error("Toggle read status error:", err);
       }
       
       return newSet;
     });
+  };
+
+  // Swipe handlers (only right swipe)
+  const handleTouchStart = (e, chapterId) => {
+    const touch = e.touches[0];
+    setSwipeState({
+      chapterId,
+      startX: touch.clientX,
+      translateX: 0
+    });
+  };
+
+  const handleTouchMove = (e, chapterId) => {
+    if (swipeState.chapterId !== chapterId) return;
+    
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - swipeState.startX;
+    
+    // Only allow right swipe (positive deltaX)
+    if (deltaX > 0) {
+      setSwipeState(prev => ({
+        ...prev,
+        translateX: Math.min(deltaX, 100)
+      }));
+    }
+  };
+
+  const handleTouchEnd = (e, chapterId) => {
+    if (swipeState.chapterId !== chapterId) return;
+    
+    const threshold = 60;
+    
+    if (swipeState.translateX > threshold) {
+      toggleChapterReadStatus(chapterId);
+    }
+    
+    // Reset swipe state
+    setSwipeState({ chapterId: null, startX: 0, translateX: 0 });
   };
 
   // --- Logic remains unchanged ---
@@ -856,37 +899,58 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                         const isRead = readChapters.has(chapter.id);
                             
                         return (
-                          <button
+                          <div
                             key={chapter.id}
-                            onClick={() => handleChapterClick(chapter)}
-                            className={`w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 text-left hover:bg-white/[0.06] hover:border-white/10 transition-all duration-300 group backdrop-blur-sm relative overflow-hidden ${
+                            className={`relative bg-white/[0.03] border border-white/5 rounded-2xl overflow-hidden group backdrop-blur-sm ${
                               isRead ? 'opacity-60' : ''
-                            } cursor-pointer`}
+                            }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4 flex-1">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center space-x-2 mb-1">
-                                    <h3 className={`font-bold text-base transition-colors truncate ${
-                                      isRead
-                                        ? 'text-green-400 group-hover:text-green-300'
-                                        : 'text-white group-hover:text-white/80'
-                                    }`}>
-                                      {getChapterDisplayTitle(chapter)}
-                                    </h3>
-                                  </div>
-                                  <div className="flex items-center space-x-3 text-xs">
-                                    <div className="flex items-center space-x-1 text-gray-500">
-                                      <Clock size={11} />
-                                      <span className="font-medium">
-                                        {getChapterDisplayDate(chapter)}
-                                      </span>
+                            {/* Swipe indicator - appears only when swiping, stays stationary */}
+                            <div className={`absolute right-4 top-1/2 -translate-y-1/2 transition-opacity duration-200 ease-in-out pointer-events-none z-10 ${
+                              swipeState.chapterId === chapter.id && swipeState.translateX > 30 ? 'opacity-100' : 'opacity-0'
+                            }`}>
+                              <ChevronRight size={24} className="text-white" />
+                            </div>
+
+                            <div
+                              onTouchStart={(e) => handleTouchStart(e, chapter.id)}
+                              onTouchMove={(e) => handleTouchMove(e, chapter.id)}
+                              onTouchEnd={(e) => handleTouchEnd(e, chapter.id)}
+                              style={{
+                                transform: swipeState.chapterId === chapter.id ? `translateX(${swipeState.translateX}px)` : 'translateX(0)',
+                                transition: swipeState.chapterId === chapter.id ? 'none' : 'transform 0.3s ease-out'
+                              }}
+                            >
+                            <button
+                              onClick={() => handleChapterClick(chapter)}
+                              className="w-full bg-transparent border-0 p-4 text-left cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4 flex-1">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2 mb-1">
+                                      <h3 className={`font-bold text-base transition-colors truncate ${
+                                        isRead
+                                          ? 'text-green-400 group-hover:text-green-300'
+                                          : 'text-white group-hover:text-white/80'
+                                      }`}>
+                                        {getChapterDisplayTitle(chapter)}
+                                      </h3>
+                                    </div>
+                                    <div className="flex items-center space-x-3 text-xs">
+                                      <div className="flex items-center space-x-1 text-gray-500">
+                                        <Clock size={11} />
+                                        <span className="font-medium">
+                                          {getChapterDisplayDate(chapter)}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
+                            </button>
                             </div>
-                          </button>
+                          </div>
                         );
                       })}
                     </>

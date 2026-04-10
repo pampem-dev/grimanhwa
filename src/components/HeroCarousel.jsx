@@ -185,9 +185,9 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
             }}
           >
             {/* Rating Tag (Top Left) */}
-            <div className="absolute top-2 left-2 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute top-2 left-2 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10">
               <Star size={10} className="text-yellow-400" fill="currentColor" />
-              <span className="text-[10px] font-bold text-white">9.6</span>
+              <span className="text-[10px] font-bold text-white">{item.rating || 'N/A'}</span>
             </div>
 
             {/* Poster Image */}

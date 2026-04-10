@@ -474,7 +474,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
             // for prod
             const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
             //for localhost
-            // const pageUrl = `http://127.0.0.1:8000/api/kaynscan/browse/?page=${page}`;
+            // const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
             // console.log(`Fetching: ${pageUrl}`);
             
             const controller = new AbortController();
@@ -496,7 +496,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
               }
               
               mangaData = [...mangaData, ...pageManga];
-              console.log(`✅ Page ${page} loaded: ${pageManga.length} manga, total: ${mangaData.length}`);
+              // console.log(`✅ Page ${page} loaded: ${pageManga.length} manga, total: ${mangaData.length}`);
               
               // Don't update estimated pages downward - we know there are 17 pages total
               const currentEstimated = Math.ceil(mangaData.length / itemsPerPage);
@@ -547,7 +547,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           const page1Manga = data.manga || [];
           allMangaData = [...page1Manga];
           
-          console.log(`✅ Page 1 loaded: ${page1Manga.length} manga`);
+          // console.log(`✅ Page 1 loaded: ${page1Manga.length} manga`);
           setAllManga(allMangaData); // Display page 1 immediately!
           setLoading(false); // Stop loading after page 1
           

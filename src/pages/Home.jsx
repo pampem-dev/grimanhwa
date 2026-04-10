@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-import { Clock, TrendingUp, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, TrendingUp, Crown, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import MangaCard from '../components/MangaCard';
 import HeroCarousel from '../components/HeroCarousel';
@@ -11,11 +11,11 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [featuredManga, setFeaturedManga] = useState([]);
   const [trendingManga, setTrendingManga] = useState([]);
   const [recentManga, setRecentManga] = useState([]);
-  const [recommendedManga, setRecommendedManga] = useState([]);
-  const [manhwaManga, setManhwaManga] = useState([]);
+  const [topRatedManga, setTopRatedManga] = useState([]);
   const [loadingTrending, setLoadingTrending] = useState(true);
   const [loadingRecent, setLoadingRecent] = useState(true);
   const [loadingPopular, setLoadingPopular] = useState(true);
+  const [loadingTopRated, setLoadingTopRated] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
@@ -266,20 +266,30 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   // Optimized fetchAllManga with persistent caching and error handling
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
-    const cacheKey = 'allManga';
+    const cacheKey = 'allManga_v2'; // Updated cache key to invalidate old cache
     
     // Check persistent cache first (unless force refresh)
     if (!forceRefresh) {
       const persistentCache = getPersistentCache(cacheKey);
       if (persistentCache) {
         console.log('Using cached data');
-        const { allManga, featured, trending, recent, recommended, manhwa } = persistentCache;
+        const { allManga, featured, trending, recent, topRated } = persistentCache;
         setAllMangaList(allManga);
         setFeaturedManga(featured);
         setTrendingManga(trending);
         setRecentManga(recent);
-        setRecommendedManga(recommended);
-        setManhwaManga(manhwa);
+        // If topRated is in cache, use it. Otherwise, sort by rating
+        if (topRated) {
+          setTopRatedManga(topRated);
+        } else {
+          // Sort by rating and take top 10
+          const sortedByRating = [...allManga].sort((a, b) => {
+            const ratingA = a.rating || 0;
+            const ratingB = b.rating || 0;
+            return ratingB - ratingA;
+          });
+          setTopRatedManga(sortedByRating.slice(0, 10));
+        }
         
         // Also store in memory cache for this session
         apiCache.current.set(cacheKey, persistentCache);
@@ -287,6 +297,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         setLoadingTrending(false);
         setLoadingRecent(false);
         setLoadingPopular(false);
+        setLoadingTopRated(false);
         
         // Load cached chapters
         const cachedChapters = {};
@@ -340,19 +351,43 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         // Store all manga for pagination
         setAllMangaList(allManga);
         
-        // Create optimized slices
-        const featured = allManga.slice(0, 15);
-        const trending = allManga.slice(0, 10);
-        const recent = allManga.slice(10, 20);
-        const recommended = allManga.slice(20, 30);
-        const manhwa = allManga.slice(30, 40);
-        
-        // Update state
+        // Create non-overlapping slices for each section with fallbacks
+        const totalManga = allManga.length;
+        // console.log('Total manga available:', totalManga);
+
+        // Sort all manga by rating (highest first) for topRated section
+        const sortedByRating = [...allManga].sort((a, b) => {
+          const ratingA = a.rating || 0;
+          const ratingB = b.rating || 0;
+          return ratingB - ratingA; // Descending order
+        });
+        const topRated = sortedByRating.slice(0, 10); // Top 10 highest rated
+        // console.log('Top 10 rated manga:', topRated.map(m => ({ title: m.title, rating: m.rating })));
+
+        // If we have enough manga, use non-overlapping slices
+        let featured, trending, recent;
+        if (totalManga >= 25) {
+          featured = allManga.slice(0, 15);
+          trending = allManga.slice(15, 25);
+          recent = allManga.slice(25, 35);
+        } else {
+          // If limited manga, ensure trending gets 10 items
+          const trendingSize = Math.min(10, totalManga);
+          const remaining = totalManga - trendingSize;
+          const featuredSize = Math.floor(remaining / 2);
+          const recentSize = remaining - featuredSize;
+          
+          // console.log('Using adjusted slices - trending:', trendingSize, 'featured:', featuredSize, 'recent:', recentSize);
+
+          featured = allManga.slice(0, featuredSize);
+          trending = allManga.slice(featuredSize, featuredSize + trendingSize);
+          recent = allManga.slice(featuredSize + trendingSize);
+        }
+
         setFeaturedManga(featured);
         setTrendingManga(trending);
         setRecentManga(recent);
-        setRecommendedManga(recommended);
-        setManhwaManga(manhwa);
+        setTopRatedManga(topRated);
         
         // Cache the processed data in both memory and persistent storage
         const cacheData = {
@@ -360,8 +395,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           featured,
           trending,
           recent,
-          recommended,
-          manhwa,
+          topRated, // Store the sorted top 10
           timestamp: Date.now()
         };
         apiCache.current.set(cacheKey, cacheData);
@@ -370,6 +404,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         setLoadingTrending(false);
         setLoadingRecent(false);
         setLoadingPopular(false);
+        setLoadingTopRated(false);
       } else {
         console.error('API response not ok:', response.status, response.statusText);
         throw new Error(`API request failed: ${response.status}`);
@@ -380,6 +415,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       setLoadingTrending(false);
       setLoadingRecent(false);
       setLoadingPopular(false);
+      setLoadingTopRated(false);
     } finally {
       setIsRefreshing(false);
     }
@@ -432,11 +468,12 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {loadingTrending
           ? Array.from({ length: 5 }).map((_, i) => <MangaCard key={i} isLoading />)
-          : trendingManga.map((manga) => (
+          : trendingManga.slice(0, 10).map((manga) => (
               <MangaCard
                 key={manga.id}
                 title={manga.title}
                 coverUrl={manga.cover_url || manga.cover}
+                rating={manga.rating}
                 onClick={() => handleMangaClick(manga)}
               />
             ))
@@ -449,7 +486,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     <div id="latest-updates-section">
       <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
         <Clock className="text-blue-500" size={20} />
-        Latest Updates ({allMangaList.length} total)
+        Latest Updates
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {loadingRecent
@@ -561,43 +598,53 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     </div>
   );
 
-  const renderPopular = () => (
+  const renderTopRated = () => (
     <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
-      <h2 className={`text-lg font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-        <Crown className="text-yellow-500" size={18} />
+      <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <Star className="text-yellow-500" size={18} fill="currentColor" />
         Popular
       </h2>
-      <div className="space-y-5">
-        {loadingPopular
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-6 h-4 bg-gray-700 animate-pulse" />
-                <div className="w-12 h-16 bg-gray-700 animate-pulse rounded" />
+      <div className="space-y-3">
+        {loadingTopRated
+          ? Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="flex gap-3 p-2">
+                <div className="w-12 h-16 rounded bg-gray-700 animate-pulse shrink-0" />
+                <div className="flex-1 flex flex-col gap-2 justify-center">
+                  <div className="h-3 bg-gray-700 animate-pulse rounded w-3/4" />
+                  <div className="h-2 bg-gray-700 animate-pulse rounded w-1/2" />
+                </div>
               </div>
             ))
-          : trendingManga.slice(0, 6).map((manga, index) => (
+          : topRatedManga.slice(0, 10).map((manga, index) => (
               <div
                 key={manga.id}
-                className="flex items-center gap-4 cursor-pointer hover:translate-x-1 transition-transform group"
                 onClick={() => handleMangaClick(manga)}
+                className="flex gap-3 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group"
               >
-                <div className={`w-6 text-center font-black italic ${index < 3 ? 'text-blue-500' : 'text-gray-600'}`}>
-                  {index + 1}
+                <div className="relative shrink-0">
+                  <img
+                    src={manga.cover_url || manga.cover}
+                    alt={manga.title}
+                    className="w-12 h-16 object-cover rounded"
+                    loading="lazy"
+                  />
+                  <div className="absolute top-0 left-0 bg-black/70 text-white text-[10px] font-bold px-1 rounded-br">
+                    #{index + 1}
+                  </div>
                 </div>
-                <img
-                  src={manga.cover_url || manga.cover}
-                  className="w-12 h-16 object-cover rounded shadow-md group-hover:ring-2 ring-blue-500/50"
-                  alt=""
-                />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold truncate uppercase tracking-tighter group-hover:text-blue-400 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {cleanTitle(manga.title)}
-                  </p>
-                  {/* <p className="text-[10px] text-gray-500 font-bold uppercase">Action, Fantasy</p> */}
+                  <h3 className={`text-sm font-bold line-clamp-2 leading-tight group-hover:text-blue-400 transition-colors ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                    {manga.title}
+                  </h3>
+                  {manga.rating && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <Star size={10} className="text-yellow-400" fill="currentColor" />
+                      <span className="text-xs text-gray-400">{manga.rating}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))
-        }
+            ))}
       </div>
     </div>
   );
@@ -628,9 +675,9 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       
       {/* Ensure carousel doesn't have its own top-margin or conflicting background */}
       <HeroCarousel 
-        manga={featuredManga} 
+        manga={topRatedManga} 
         onMangaClick={handleMangaClick}
-        isLoading={loadingTrending}
+        isLoading={loadingTopRated}
       />
     </section>
 
@@ -647,7 +694,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           {/* RIGHT SIDE (Popular Sidebar) */}
           <aside className="lg:col-span-4">
             <div className="sticky top-24">
-              {renderPopular()}
+              {renderTopRated()}
             </div>
           </aside>
 
