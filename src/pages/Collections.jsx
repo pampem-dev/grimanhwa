@@ -506,9 +506,9 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       try {
         // console.log(`📄 Loading page ${page} in background...`);
         // for prod
-        // const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
+        const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
         //for localhost
-        const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
+        // const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
         // console.log(`Fetching: ${pageUrl}`);
 
         const controller = new AbortController();
