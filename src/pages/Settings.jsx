@@ -307,6 +307,15 @@ const Settings = () => {
                   <span className="text-sm text-gray-400">v1.0.0</span>
                 </div>
                 <div className="flex gap-4">
+                  <a
+                    href="https://github.com/pampem-dev/grimanhwa"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <ExternalLink size={14} />
+                    GitHub
+                  </a>
                   <button className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors">
                     <ExternalLink size={14} />
                     Privacy Policy
