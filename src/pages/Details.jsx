@@ -9,7 +9,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   const [manga, setManga] = useState(propManga);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true); // Default expanded for better UX
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false); // Default collapsed (show less)
   const [mangaDetails, setMangaDetails] = useState(propManga);
   const [readChapters, setReadChapters] = useState(new Set()); // Track read chapters
   const [isInLibrary, setIsInLibrary] = useState(false); // Track if manga is in library
@@ -556,11 +556,11 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     if (manga.chapters && manga.chapters.length > 0) {
       setChapters(manga.chapters);
       setLoading(false);
-      
+
       // Cache the existing data
       writeDetailsCache(manga.id, {
-        description: manga.description,
-        status: manga.status,
+        description: manga.description || '',
+        status: manga.status || '',
         chapters: manga.chapters
       });
       return;
@@ -574,7 +574,8 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         description: cached.description || prev.description,
         status: cached.status || prev.status,
       }));
-      setChapters(cached.chapters);
+      const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
+      setChapters(cachedChapters);
       setLoading(false);
       return;
     }
@@ -594,15 +595,18 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           description: cached.description || prev.description,
           status: cached.status || prev.status,
         }));
-        setChapters(sortChapters(cached.chapters));
+        // Handle both old format (array) and new format (object)
+        const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
+        setChapters(sortChapters(cachedChapters));
         setLoading(false);
         return;
       }
-      
+
       // Show cached data immediately while fetching fresh data
       if (cached && forceRefresh) {
         console.log('📦 Showing cached data while updating...');
-        setChapters(sortChapters(cached.chapters));
+        const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
+        setChapters(sortChapters(cachedChapters));
       }
 
       // OPTIMIZATION: Check if we already have chapters from Home page navigation
@@ -610,11 +614,11 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         const sorted = sortChapters(manga.chapters);
         setChapters(sorted);
         setLoading(false);
-        
+
         // Cache the existing data for future use
         writeDetailsCache(manga.id, {
-          description: manga.description,
-          status: manga.status,
+          description: manga.description || '',
+          status: manga.status || '',
           chapters: sorted
         });
         return;
@@ -631,13 +635,45 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       ]);
       if (response.ok) {
         let chaptersData = await response.json();
+        console.log('📦 API response:', chaptersData);
+
+        // Handle both old format (array) and new format (object)
+        let chapters = [];
+        let description = '';
+        let status = '';
+
+        if (Array.isArray(chaptersData)) {
+          // Old format: just chapters array
+          chapters = chaptersData;
+          console.log('✅ Old format detected');
+        } else if (chaptersData.chapters && Array.isArray(chaptersData.chapters)) {
+          // New format: object with chapters array directly
+          chapters = chaptersData.chapters;
+          description = chaptersData.description || '';
+          status = chaptersData.status || '';
+          console.log('✅ New format detected (direct chapters)');
+        } else if (chaptersData.chapters && chaptersData.chapters.chapters) {
+          // Nested format: {chapters: {chapters: [...], description: '', status: ''}}
+          chapters = chaptersData.chapters.chapters;
+          description = chaptersData.chapters.description || '';
+          status = chaptersData.chapters.status || '';
+        } else {
+          chapters = [];
+        }
+
         setMangaDetails(prev => ({
           ...prev,
-          description: chaptersData.description || prev.description,
-          status: chaptersData.status || prev.status,
+          description: description || prev.description,
+          status: status || prev.status,
         }));
+
+        // Ensure chapters is always an array
+        if (!Array.isArray(chapters)) {
+          chapters = [];
+        }
+
         const seen = new Set();
-        const uniqueChapters = chaptersData.chapters.filter(ch => {
+        const uniqueChapters = chapters.filter(ch => {
           const key = ch.id || ch.url;
           if (seen.has(key)) return false;
           seen.add(key);
@@ -647,8 +683,8 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         setChapters(sorted);
 
         writeDetailsCache(manga.id, {
-          description: chaptersData.description,
-          status: chaptersData.status,
+          description: description,
+          status: status,
           chapters: sorted,
         });
       }
@@ -657,14 +693,18 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       
       // FALLBACK: Try to use any cached data even if expired
       const fallbackCache = readDetailsCache(manga.id, true); // Ignore TTL
-      if (fallbackCache && fallbackCache.chapters) {
-        setChapters(sortChapters(fallbackCache.chapters));
-        setMangaDetails(prev => ({
-          ...prev,
-          description: fallbackCache.description || prev.description,
-          status: fallbackCache.status || prev.status,
-        }));
-      } else {
+      if (fallbackCache) {
+        const fallbackChapters = Array.isArray(fallbackCache) ? fallbackCache : fallbackCache.chapters || [];
+        if (fallbackChapters.length > 0) {
+          setChapters(sortChapters(fallbackChapters));
+          setMangaDetails(prev => ({
+            ...prev,
+            description: fallbackCache.description || prev.description,
+            status: fallbackCache.status || prev.status,
+          }));
+        }
+      }
+      if (!chapters.length) {
         // If no cache at all, show empty state instead of infinite loading
         setChapters([]);
         setMangaDetails(prev => ({

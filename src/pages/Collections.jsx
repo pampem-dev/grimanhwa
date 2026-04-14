@@ -503,7 +503,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
 
     for (let page = startPage; page <= endPage; page++) {
       try {
-        // console.log(`📄 Loading page ${page} in background...`);
+        // console.log(`Loading page ${page} in background...`);
         // for prod
         const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
         //for localhost
@@ -596,7 +596,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         const currentPageCount = Math.ceil(persistentCache.allManga.length / itemsPerPage);
         const maxPages = 20;
         if (currentPageCount < maxPages) {
-          console.log(`🔄 Resuming background loading from page ${currentPageCount + 1}...`);
           setBackgroundLoading(true);
           loadMorePagesRef.current(currentPageCount + 1, maxPages, persistentCache.allManga, cacheKey);
         }
@@ -612,7 +611,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       // Check cache first for instant display
       const cached = apiCache.current.get(cacheKey) || getPersistentCache(cacheKey);
       if (cached && !forceRefresh) {
-        console.log('📦 Using cached collections for instant display');
+        console.log('Using cached collections for instant display');
         setAllManga(cached.allManga);
         setLoading(false);
         return;
@@ -620,7 +619,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       
       // Show cached data while fetching fresh data
       if (cached && forceRefresh) {
-        console.log('📦 Showing cached collections while updating...');
+        console.log('Showing cached collections while updating...');
         setAllManga(cached.allManga);
       }
 
@@ -631,7 +630,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
 
       // Fetch first page (or resume from saved page) immediately and display it
       try {
-        console.log(`📄 Fetching page ${startPage} immediately...`);
+        console.log(`Fetching page ${startPage} immediately...`);
         const page1Url = `${API_URL}api/kaynscan/browse/?page=${startPage}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // Short timeout for first page
@@ -663,7 +662,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           setPersistentCache(cacheKey, cacheData);
 
           // Continue loading more pages in background
-          console.log(`🔄 Starting background loading for pages ${startPage + 1}-${maxPages}...`);
+          console.log(`Starting background loading for pages ${startPage + 1}-${maxPages}...`);
           setBackgroundLoading(true);
           loadMorePagesRef.current(startPage + 1, maxPages, allMangaData, cacheKey);
         } else {
