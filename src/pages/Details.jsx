@@ -13,6 +13,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   const [mangaDetails, setMangaDetails] = useState(propManga);
   const [readChapters, setReadChapters] = useState(new Set()); // Track read chapters
   const [isInLibrary, setIsInLibrary] = useState(false); // Track if manga is in library
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false); // Track background refresh
   
   // Swipe state
   const [swipeState, setSwipeState] = useState({ chapterId: null, startX: 0, translateX: 0 });
@@ -34,6 +35,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         description: parsed.description,
         status: parsed.status,
         chapters: parsed.chapters,
+        alternative_titles: parsed.alternative_titles || [],
       };
     } catch {
       return null;
@@ -49,6 +51,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           description: payload.description,
           status: payload.status,
           chapters: payload.chapters,
+          alternative_titles: payload.alternative_titles || [],
           timestamp: Date.now(),
         })
       );
@@ -573,6 +576,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         ...prev,
         description: cached.description || prev.description,
         status: cached.status || prev.status,
+        alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
       }));
       const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
       setChapters(cachedChapters);
@@ -589,11 +593,11 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       // Always check cache first for instant display
       const cached = readDetailsCache(manga.id);
       if (cached && !forceRefresh) {
-        console.log('📦 Using cached chapters for instant display');
         setMangaDetails((prev) => ({
           ...prev,
           description: cached.description || prev.description,
           status: cached.status || prev.status,
+          alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
         }));
         // Handle both old format (array) and new format (object)
         const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
@@ -602,11 +606,18 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         return;
       }
 
-      // Show cached data immediately while fetching fresh data
+      // Show cached data immediately while fetching fresh data in background
       if (cached && forceRefresh) {
-        console.log('📦 Showing cached data while updating...');
         const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
         setChapters(sortChapters(cachedChapters));
+        setMangaDetails((prev) => ({
+          ...prev,
+          description: cached.description || prev.description,
+          status: cached.status || prev.status,
+          alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
+        }));
+        setLoading(false); // Don't show loading state
+        setIsBackgroundRefreshing(true); // Show subtle refresh indicator
       }
 
       // OPTIMIZATION: Check if we already have chapters from Home page navigation
@@ -625,38 +636,38 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       }
 
       // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 15000) // 15s timeout for faster response
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 8000) // 8s timeout for faster response
       );
 
       const response = await Promise.race([
-        fetch(`${API_ENDPOINTS.MANGA(manga.id)}?refresh=true`),
+        fetch(`${API_ENDPOINTS.MANGA(manga.id)}${forceRefresh ? '?refresh=true' : ''}`),
         timeoutPromise
       ]);
       if (response.ok) {
         let chaptersData = await response.json();
-        console.log('📦 API response:', chaptersData);
 
         // Handle both old format (array) and new format (object)
         let chapters = [];
         let description = '';
         let status = '';
+        let alternative_titles = [];
 
         if (Array.isArray(chaptersData)) {
           // Old format: just chapters array
           chapters = chaptersData;
-          console.log('✅ Old format detected');
         } else if (chaptersData.chapters && Array.isArray(chaptersData.chapters)) {
           // New format: object with chapters array directly
           chapters = chaptersData.chapters;
           description = chaptersData.description || '';
           status = chaptersData.status || '';
-          console.log('✅ New format detected (direct chapters)');
+          alternative_titles = chaptersData.alternative_titles || [];
         } else if (chaptersData.chapters && chaptersData.chapters.chapters) {
           // Nested format: {chapters: {chapters: [...], description: '', status: ''}}
           chapters = chaptersData.chapters.chapters;
           description = chaptersData.chapters.description || '';
           status = chaptersData.chapters.status || '';
+          alternative_titles = chaptersData.chapters.alternative_titles || [];
         } else {
           chapters = [];
         }
@@ -665,6 +676,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           ...prev,
           description: description || prev.description,
           status: status || prev.status,
+          alternative_titles: alternative_titles || prev.alternative_titles || [],
         }));
 
         // Ensure chapters is always an array
@@ -686,11 +698,12 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           description: description,
           status: status,
           chapters: sorted,
+          alternative_titles: alternative_titles,
         });
       }
     } catch (err) {
       console.error("Chapters fetch error:", err);
-      
+
       // FALLBACK: Try to use any cached data even if expired
       const fallbackCache = readDetailsCache(manga.id, true); // Ignore TTL
       if (fallbackCache) {
@@ -701,6 +714,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             ...prev,
             description: fallbackCache.description || prev.description,
             status: fallbackCache.status || prev.status,
+            alternative_titles: fallbackCache.alternative_titles || prev.alternative_titles || [],
           }));
         }
       }
@@ -715,6 +729,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       }
     } finally {
       setLoading(false);
+      setIsBackgroundRefreshing(false);
     }
   };
 
@@ -849,9 +864,14 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
               
               {/* Title - only visible on mobile */}
               <header className="lg:hidden mb-4">
-                <h1 className="text-3xl font-bold text-white tracking-tight">
-                  {cleanTitle(mangaDetails.title)}
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-3xl font-bold text-white tracking-tight">
+                    {cleanTitle(mangaDetails.title)}
+                  </h1>
+                  {isBackgroundRefreshing && (
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  )}
+                </div>
               </header>
               
               <div className="grid grid-cols-1 gap-3">
@@ -896,9 +916,14 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           <div className="flex-1 min-w-0">
             {/* Title - only visible on desktop */}
             <header className="mb-8 hidden lg:block">
-              <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-4">
-                {cleanTitle(mangaDetails.title)}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                  {cleanTitle(mangaDetails.title)}
+                </h1>
+                {isBackgroundRefreshing && (
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                )}
+              </div>
             </header>
 
             {/* Content Sections */}
@@ -909,10 +934,28 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   <Info size={18} />
                   <h2 className="text-sm font-black uppercase tracking-[0.2em]">Summary</h2>
                 </div>
+
                 <div className={`relative transition-all duration-500 ${!isDescriptionExpanded ? 'max-h-24 overflow-hidden' : 'max-h-[1000px]'}`}>
                   <p className="text-gray-400 leading-relaxed text-lg whitespace-pre-wrap">
                     {mangaDetails.description || 'The description for this series is currently unavailable.'}
                   </p>
+
+                  {/* Alternative Titles - at the bottom of description */}
+                  {mangaDetails.alternative_titles && mangaDetails.alternative_titles.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-white/5">
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2">Alternatives</p>
+                      <div className="flex flex-wrap gap-2">
+                        {mangaDetails.alternative_titles.map((title, index) => (
+                          <span
+                            key={index}
+                            className="text-xs px-3 py-1 bg-white/5 text-gray-400 rounded-full border border-white/10"
+                          >
+                            {title}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {!isDescriptionExpanded && <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>}
                 </div>
                 <button 

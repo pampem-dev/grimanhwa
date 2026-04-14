@@ -10,6 +10,8 @@ const Settings = () => {
   const [readingMode, setReadingMode] = useState('continuous'); // continuous, single, double
   const [fontSize, setFontSize] = useState('medium'); // small, medium, large
   const [language, setLanguage] = useState('english');
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
+  const [showClearCacheModal, setShowClearCacheModal] = useState(false);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -38,32 +40,37 @@ const Settings = () => {
   }, [autoDownload, notifications, autoPlay, readingMode, fontSize, language]);
 
   const handleClearCache = () => {
-    if (window.confirm('Clear all cached data? This will remove offline content but keep your library and history.')) {
-      // Clear all manga cache entries
-      let clearedCount = 0;
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('mangaCache_') || key.startsWith('collectionsCache_') || key.startsWith('readerCache_') || key.startsWith('detailsCache_')) {
-          localStorage.removeItem(key);
-          clearedCount++;
-        }
-      });
-      
-      // Also clear any old cache format
-      if (localStorage.getItem('mangaCache')) {
-        localStorage.removeItem('mangaCache');
+    setShowClearCacheModal(true);
+  };
+
+  const confirmClearCache = () => {
+    // Clear all manga cache entries
+    let clearedCount = 0;
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('mangaCache_') || key.startsWith('collectionsCache_') || key.startsWith('readerCache_') || key.startsWith('detailsCache_')) {
+        localStorage.removeItem(key);
         clearedCount++;
       }
-      
-      window.alert(`Cache cleared successfully! Removed ${clearedCount} cached items.`);
+    });
+
+    // Also clear any old cache format
+    if (localStorage.getItem('mangaCache')) {
+      localStorage.removeItem('mangaCache');
+      clearedCount++;
     }
+
+    setShowClearCacheModal(false);
+    window.alert(`Cache cleared successfully! Removed ${clearedCount} cached items.`);
   };
 
   const handleClearAllData = () => {
-    if (window.confirm('⚠️ WARNING: This will delete ALL your data including library, history, and settings. This action cannot be undone. Are you sure?')) {
-      localStorage.clear();
-      window.alert('All data cleared. The page will now refresh.');
-      window.location.reload();
-    }
+    setShowClearDataModal(true);
+  };
+
+  const confirmClearAllData = () => {
+    localStorage.clear();
+    setShowClearDataModal(false);
+    window.location.reload();
   };
 
   return (
@@ -75,7 +82,7 @@ const Settings = () => {
             <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           </div>
           <div className="text-sm text-gray-500">
-            Version 1.0.0
+            Version 1.4.4
           </div>
         </div>
 
@@ -338,6 +345,68 @@ const Settings = () => {
           </section>
         </div>
       </div>
+
+      {/* Clear All Data Confirmation Modal */}
+      {showClearDataModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#050505] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
+                <Trash2 size={18} className="text-red-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Clear All Data</h3>
+            </div>
+            <p className="text-gray-400 mb-6">
+              This will delete all your data including library, history, and settings. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowClearDataModal(false)}
+                className="px-4 py-2 rounded-lg text-white hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClearAllData}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Clear All Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Cache Confirmation Modal */}
+      {showClearCacheModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#050505] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-yellow-600/20 rounded-full flex items-center justify-center">
+                <Download size={18} className="text-yellow-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Clear Cache</h3>
+            </div>
+            <p className="text-gray-400 mb-6">
+              This will remove all cached data but keep your library and history.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowClearCacheModal(false)}
+                className="px-4 py-2 rounded-lg text-white hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClearCache}
+                className="px-4 py-2 rounded-lg bg-yellow-600 text-white hover:bg-yellow-700 transition-colors"
+              >
+                Clear Cache
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

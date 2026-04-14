@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown, ChevronDown, Star } from 'lucide-react';
 import { API_ENDPOINTS, API_URL } from '../config/api';
+import { useCollections } from '../contexts/CollectionsContext';
 
 // Virtual scroll component for large lists
 const VirtualScroll = ({ items, itemHeight, containerHeight, renderItem }) => {
@@ -139,11 +140,6 @@ const MangaListItem = React.memo(({ manga, onClick, imageObserver, toggleLibrary
         <p className="font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight text-sm">
           {manga._cleanTitle || cleanTitle(manga.title)}
         </p>
-        {mangaDetails[manga.id] && (
-          <p className="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-widest">
-            {mangaDetails[manga.id].totalChapters} Chapters
-          </p>
-        )}
       </div>
       {/* Library star button */}
       <button
@@ -190,22 +186,27 @@ const MangaListItemSkeleton = () => (
 );
 
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
-  const [allManga, setAllManga] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { allManga, loading, backgroundLoading: contextBackgroundLoading, mangaDetails, fetchAllManga, sortManga } = useCollections();
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20); 
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [itemsPerPage] = useState(20);
+  const [viewMode, setViewMode] = useState(() => {
+    // Load view mode from localStorage
+    try {
+      const saved = localStorage.getItem('collectionViewMode');
+      return saved || 'grid';
+    } catch {
+      return 'grid';
+    }
+  }); // 'grid' or 'list'
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('---'); // '---', 'title-asc', 'title-desc'
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [estimatedTotalPages, setEstimatedTotalPages] = useState(17); // Start with actual estimate
-  const [backgroundLoading, setBackgroundLoading] = useState(false); // Track background loading
-  const [mangaDetails, setMangaDetails] = useState({}); // Store basic manga info
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
   const [library, setLibrary] = useState([]); // Track library manga
 
-  // Cache for API responses
+  // Cache for API responses (still needed for manga info)
   const apiCache = useRef(new Map());
   const infoCache = useRef(new Map());
   const dropdownRef = useRef(null);
@@ -217,9 +218,21 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         setDropdownOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownRef]);
+
+  // Save view mode to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('collectionViewMode', viewMode);
+    } catch (err) {
+      console.error('Failed to save view mode:', err);
+    }
+  }, [viewMode]);
 
   // Load library from localStorage on mount
   useEffect(() => {
@@ -386,7 +399,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   // Update pagination when filtered results change
   const actualTotalPages = Math.ceil(filteredAndSortedManga.length / itemsPerPage);
   // Use estimated pages during initial loading or background loading
-  const filteredTotalPages = (loading || backgroundLoading) ? estimatedTotalPages : Math.max(actualTotalPages, estimatedTotalPages);
+  const filteredTotalPages = (loading || contextBackgroundLoading) ? estimatedTotalPages : Math.max(actualTotalPages, estimatedTotalPages);
   const filteredCurrentItems = filteredAndSortedManga.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -406,6 +419,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   // );
 
   // Lightweight function to get basic manga info (total chapters, status) with caching
+  // NOTE: This is now handled by CollectionsContext, keeping for prefetch only
   const fetchBasicMangaInfo = async (mangaId) => {
     // Check memory cache first
     if (infoCache.current.has(mangaId)) {
@@ -420,29 +434,23 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       return persistentCache.data;
     }
 
+    // Fetch from API
     try {
-      const response = await fetch(API_ENDPOINTS.MANGA(mangaId));
+      const response = await fetch(`${API_URL}api/kaynscan/manga/?id=${encodeURIComponent(mangaId)}`);
       if (response.ok) {
-        const data = await response.json();
-        const chapters = data.chapters || [];
-        const info = {
-          totalChapters: chapters.length,
-          status: data.status || 'ongoing'
-        };
-        
+        const info = await response.json();
+
         // Cache in both memory and persistent storage
         infoCache.current.set(mangaId, info);
         setPersistentCache(`info_${mangaId}`, { data: info });
-        
+
         return info;
       }
-    } catch (err) {
-      console.error(`Failed to fetch info for ${mangaId}:`, err);
+    } catch (error) {
+      console.error(`Failed to fetch basic info for ${mangaId}:`, error);
     }
-    return {
-      totalChapters: 0,
-      status: 'unknown'
-    };
+
+    return null;
   };
 
   // Fetch basic info for current page items (batched for performance)
@@ -491,218 +499,26 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           detailsMap[mangaId] = info;
         }
       });
-      setMangaDetails(detailsMap);
+      // NOTE: Not setting mangaDetails locally anymore, context handles it
+      // setMangaDetails(detailsMap);
     }
   }, [mangaDetails, currentPage]);
-
-  // Function to load remaining pages in background (defined outside to avoid initialization issues)
-  const loadMorePagesRef = useRef(null);
-
-  loadMorePagesRef.current = async (startPage, endPage, existingData, cacheKey) => {
-    let mangaData = [...existingData];
-
-    for (let page = startPage; page <= endPage; page++) {
-      try {
-        // console.log(`Loading page ${page} in background...`);
-        // for prod
-        const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
-        //for localhost
-        // const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
-        // console.log(`Fetching: ${pageUrl}`);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const response = await fetch(pageUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        // console.log(`📡 Response status: ${response.status} for page ${page}`);
-
-        if (response.ok) {
-          const data = await response.json();
-          const pageManga = data.manga || [];
-          // console.log(`📊 Page ${page} data:`, { manga: pageManga.length, totalManga: data.total });
-
-          if (pageManga.length === 0) {
-            // console.log(`🏁 No more manga found on page ${page}, stopping`);
-            break;
-          }
-
-          mangaData = [...mangaData, ...pageManga];
-          // console.log(`✅ Page ${page} loaded: ${pageManga.length} manga, total: ${mangaData.length}`);
-
-          // Don't update estimated pages downward - we know there are 17 pages total
-          const currentEstimated = Math.ceil(mangaData.length / itemsPerPage);
-          if (currentEstimated > estimatedTotalPages) {
-            setEstimatedTotalPages(currentEstimated);
-            // console.log(`📄 Updated pagination: ${currentEstimated} pages estimated`);
-          } else {
-            // console.log(`📄 Keeping pagination at ${estimatedTotalPages} pages (loaded: ${currentEstimated})`);
-          }
-
-          // Update display with new data
-          setAllManga([...mangaData]);
-
-          // Small delay between pages
-          await new Promise(resolve => setTimeout(resolve, 200));
-        } else {
-          console.warn(`⚠️ Page ${page} failed: ${response.status}`);
-        }
-      } catch (err) {
-        console.warn(`⚠️ Error loading page ${page}:`, err);
-      }
-    }
-
-    // Cache final data
-    const finalCacheData = {
-      allManga: mangaData,
-      timestamp: Date.now()
-    };
-    apiCache.current.set(cacheKey, finalCacheData);
-    setPersistentCache(cacheKey, finalCacheData);
-
-    console.log(`🎉 All pages loaded! Total manga: ${mangaData.length}`);
-    setBackgroundLoading(false);
-  };
-
-  // Fetch all manga with persistent caching
-  const fetchAllManga = useCallback(async (forceRefresh = false) => {
-    const cacheKey = 'allManga';
-
-    // Check persistent cache
-    if (!forceRefresh) {
-      const persistentCache = getPersistentCache(cacheKey);
-      if (persistentCache) {
-        setAllManga(persistentCache.allManga);
-
-        // Also store in memory cache for this session
-        apiCache.current.set(cacheKey, persistentCache);
-
-        setLoading(false);
-
-        // Load cached manga info
-        const cachedInfo = {};
-        Object.keys(mangaDetails).forEach(mangaId => {
-          const infoCache = getPersistentCache(`info_${mangaId}`);
-          if (infoCache) {
-            cachedInfo[mangaId] = infoCache.data;
-          }
-        });
-        if (Object.keys(cachedInfo).length > 0) {
-          setMangaDetails(cachedInfo);
-        }
-
-        // Continue loading more pages in background if cache is incomplete
-        const currentPageCount = Math.ceil(persistentCache.allManga.length / itemsPerPage);
-        const maxPages = 20;
-        if (currentPageCount < maxPages) {
-          setBackgroundLoading(true);
-          loadMorePagesRef.current(currentPageCount + 1, maxPages, persistentCache.allManga, cacheKey);
-        }
-        return;
-      }
-    }
-
-    try {
-      setLoading(true);
-      setFetchError(null);
-      if (forceRefresh) setIsRefreshing(true);
-
-      // Check cache first for instant display
-      const cached = apiCache.current.get(cacheKey) || getPersistentCache(cacheKey);
-      if (cached && !forceRefresh) {
-        console.log('Using cached collections for instant display');
-        setAllManga(cached.allManga);
-        setLoading(false);
-        return;
-      }
-      
-      // Show cached data while fetching fresh data
-      if (cached && forceRefresh) {
-        console.log('Showing cached collections while updating...');
-        setAllManga(cached.allManga);
-      }
-
-      // Progressive loading - fetch page 1 first, then load more pages in background
-      let allMangaData = [];
-      let startPage = 1;
-      const maxPages = 20; // Load up to 20 pages
-
-      // Fetch first page (or resume from saved page) immediately and display it
-      try {
-        console.log(`Fetching page ${startPage} immediately...`);
-        const page1Url = `${API_URL}api/kaynscan/browse/?page=${startPage}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // Short timeout for first page
-
-        const response = await fetch(page1Url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const data = await response.json();
-          const page1Manga = data.manga || [];
-
-          // If resuming from saved progress, append to existing data
-          if (allMangaData.length > 0) {
-            allMangaData = [...allMangaData, ...page1Manga];
-          } else {
-            allMangaData = [...page1Manga];
-          }
-
-          // console.log(`✅ Page ${startPage} loaded: ${page1Manga.length} manga`);
-          setAllManga(allMangaData); // Display immediately!
-          setLoading(false); // Stop loading after first page
-
-          // Cache initial data
-          const cacheData = {
-            allManga: allMangaData,
-            timestamp: Date.now()
-          };
-          apiCache.current.set(cacheKey, cacheData);
-          setPersistentCache(cacheKey, cacheData);
-
-          // Continue loading more pages in background
-          console.log(`Starting background loading for pages ${startPage + 1}-${maxPages}...`);
-          setBackgroundLoading(true);
-          loadMorePagesRef.current(startPage + 1, maxPages, allMangaData, cacheKey);
-        } else {
-          throw new Error(`Page ${startPage} request failed: ${response.status}`);
-        }
-      } catch (err) {
-        console.error(`Page ${startPage} fetch error:`, err);
-        throw err;
-      }
-      
-    } catch (err) {
-      console.error("Collections fetch error:", err);
-      setFetchError(err.message);
-      setLoading(false);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
 
   // Refresh function
   const handleRefresh = useCallback(() => {
     // Clear all caches (both memory and persistent)
     apiCache.current.clear();
     infoCache.current.clear();
-    
+
     // Clear persistent cache keys
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('collectionsCache_')) {
         localStorage.removeItem(key);
       }
     });
-    
-    setMangaDetails({});
-    // Force refresh
-    fetchAllManga(true);
-  }, [fetchAllManga]);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchAllManga();
+    // Force refresh using context
+    fetchAllManga(true);
   }, [fetchAllManga]);
 
   // Optimized prefetch next page data
@@ -732,7 +548,8 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
                   detailsMap[result.value.mangaId] = result.value.info;
                 }
               });
-              setMangaDetails(detailsMap);
+              // NOTE: Not setting mangaDetails locally anymore, context handles it
+              // setMangaDetails(detailsMap);
             });
           }
         };
@@ -768,7 +585,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const renderGridView = () => {
     const items = filteredCurrentItems;
     const maxPageItems = itemsPerPage;
-    const isPageLoading = backgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
+    const isPageLoading = contextBackgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
     
     // Show "No results" message when search returns empty
     if (searchQuery && filteredAndSortedManga.length === 0 && !loading) {
@@ -805,7 +622,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const renderListView = () => {
     const items = filteredCurrentItems;
     const maxPageItems = itemsPerPage;
-    const isPageLoading = backgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
+    const isPageLoading = contextBackgroundLoading && currentPage > Math.floor(allManga.length / itemsPerPage);
     
     // Show "No results" message when search returns empty
     if (searchQuery && filteredAndSortedManga.length === 0 && !loading) {
@@ -819,7 +636,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
     
     return (
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {items.map((manga, index) => (
           <MangaListItem
             key={manga.id || index}
@@ -893,7 +710,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           <div className="text-sm text-gray-400">
             {searchQuery ? 
               `${filteredAndSortedManga.length} found` : 
-              `${allManga.length} total`
+              contextBackgroundLoading ? `~323 total (${allManga.length} loaded)` : `${allManga.length} total`
             }
           </div>
         </div>

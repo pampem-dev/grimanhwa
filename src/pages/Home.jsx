@@ -92,18 +92,28 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       const response = await fetch(API_ENDPOINTS.MANGA(mangaId));
       if (response.ok) {
         const data = await response.json();
-        const chapters = data.chapters || [];
+
+        // Handle both old format (array) and new format (object)
+        let chapters = [];
+        if (Array.isArray(data)) {
+          chapters = data;
+        } else if (data.chapters && Array.isArray(data.chapters)) {
+          chapters = data.chapters;
+        } else if (data.chapters && data.chapters.chapters) {
+          chapters = data.chapters.chapters;
+        }
+
         if (chapters.length > 0) {
           const latestChapter = chapters[0]; // Assuming chapters are sorted by latest first
           const chapterInfo = {
             number: extractChapterNumber(latestChapter),
             title: latestChapter.title || `Chapter ${extractChapterNumber(latestChapter)}`
           };
-          
+
           // Cache in both memory and persistent storage
           chapterCache.current.set(mangaId, chapterInfo);
           setPersistentCache(`chapter_${mangaId}`, { data: chapterInfo });
-          
+
           return chapterInfo;
         }
       }

@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Book, Trash2, Grid, List, Search, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Book, Grid, List, Search, ChevronDown } from 'lucide-react';
 
 const Library = ({ onMangaSelect, onMangaDetails }) => {
   const [libraryManga, setLibraryManga] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState(() => {
+    // Load view mode from localStorage
+    try {
+      const saved = localStorage.getItem('libraryViewMode');
+      return saved || 'grid';
+    } catch {
+      return 'grid';
+    }
+  }); // 'grid' or 'list'
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'title-asc', 'title-desc'
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -20,6 +28,15 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Save view mode to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('libraryViewMode', viewMode);
+    } catch (err) {
+      console.error('Failed to save view mode:', err);
+    }
+  }, [viewMode]);
 
   // Sort options
   const sortOptions = [
@@ -80,14 +97,6 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     
     return sorted;
   }, [libraryManga, searchQuery, sortBy]);
-
-  // Remove from library
-  const removeFromLibrary = (mangaId) => {
-    const libraryKey = 'mangaLibrary';
-    const updatedLibrary = libraryManga.filter(manga => manga.id !== mangaId);
-    setLibraryManga(updatedLibrary);
-    localStorage.setItem(libraryKey, JSON.stringify(updatedLibrary));
-  };
 
   // Helper functions
   const cleanTitle = (title) => {
@@ -160,18 +169,18 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     }
 
     return (
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {filteredAndSortedManga.map((manga, index) => {
           return (
             <div
               key={manga.id}
-              className="flex items-center gap-4 p-4 bg-gray-900/40 rounded-xl cursor-pointer transition-all border border-gray-800 hover:border-blue-500/50 hover:bg-blue-600/10 group"
+              className="flex gap-3 p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group"
               onClick={() => onMangaDetails(manga)}
             >
               <div className="relative shrink-0">
                 <img
                   src={manga.cover_url || manga.cover}
-                  className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
+                  className="w-14 h-20 object-cover rounded shadow-md group-hover:scale-105 transition-transform bg-gray-800"
                   alt={manga.title}
                   onError={(e) => {
                     e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
@@ -179,22 +188,10 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
                 />
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
-                <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight text-base">
+                <p className="font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight text-sm">
                   {cleanTitle(manga.title)}
                 </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Added {manga.dateAdded ? new Date(manga.dateAdded).toLocaleDateString() : 'Recently'}
-                </p>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeFromLibrary(manga.id);
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-red-600/80 backdrop-blur-sm rounded-lg hover:bg-red-600"
-              >
-                <Trash2 size={16} className="text-white" />
-              </button>
             </div>
           );
         })}

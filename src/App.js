@@ -9,6 +9,7 @@ import Library from './pages/Library';
 import Settings from './pages/Settings';
 import Reader from './pages/Reader';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { CollectionsProvider } from './contexts/CollectionsContext';
 import './App.css';
 
 // App content component that uses router hooks
@@ -156,9 +157,11 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <CollectionsProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </CollectionsProvider>
     </ThemeProvider>
   );
 }
