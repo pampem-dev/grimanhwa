@@ -499,7 +499,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const loadMorePagesRef = useRef(null);
 
   loadMorePagesRef.current = async (startPage, endPage, existingData, cacheKey) => {
-    console.log(`🔄 loadMorePages called: start=${startPage}, end=${endPage}, existing=${existingData.length}`);
     let mangaData = [...existingData];
 
     for (let page = startPage; page <= endPage; page++) {
