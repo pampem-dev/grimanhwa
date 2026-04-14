@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown, ChevronDown, Star } from 'lucide-react';
 import { API_ENDPOINTS, API_URL } from '../config/api';
 
 // Virtual scroll component for large lists
@@ -42,22 +42,27 @@ const cleanTitle = (title) => {
 };
 
 // Separate components for better performance
-const MangaCard = React.memo(({ manga, onClick, imageObserver }) => {
+const MangaCard = React.memo(({ manga, onClick, imageObserver, toggleLibrary, isInLibrary }) => {
   const imgRef = useRef(null);
-  
+
   useEffect(() => {
     const img = imgRef.current;
     if (img && imageObserver) {
       imageObserver.observe(img);
     }
-    
+
     return () => {
       if (img && imageObserver) {
         imageObserver.unobserve(img);
       }
     };
   }, [imageObserver]);
-  
+
+  const handleLibraryToggle = (e) => {
+    e.stopPropagation(); // Prevent card click
+    toggleLibrary(manga);
+  };
+
   return (
     <div className="cursor-pointer group" onClick={onClick}>
       <div className="relative overflow-hidden rounded-xl">
@@ -70,6 +75,22 @@ const MangaCard = React.memo(({ manga, onClick, imageObserver }) => {
             e.target.src = "https://via.placeholder.com/300x450/374151/9CA3AF?text=No+Cover";
           }}
         />
+        {/* Library star button */}
+        <button
+          onClick={handleLibraryToggle}
+          className="absolute top-2 right-2 p-2 rounded-full bg-black/30 hover:bg-black/50 active:scale-90 transition-all duration-200 backdrop-blur-sm group/btn"
+          title={isInLibrary(manga.id) ? "Remove from Library" : "Add to Library"}
+        >
+          <Star
+            size={18}
+            fill={isInLibrary(manga.id) ? 'currentColor' : 'none'}
+            className={`transition-colors ${
+              isInLibrary(manga.id)
+                ? 'text-yellow-400'
+                : 'text-white/80 group-hover/btn:text-white'
+            }`}
+          />
+        </button>
       </div>
       <div className="mt-2 text-center">
         <h3 className="text-sm font-bold uppercase tracking-tight truncate text-white group-hover:text-blue-400 transition-colors">
@@ -80,29 +101,34 @@ const MangaCard = React.memo(({ manga, onClick, imageObserver }) => {
   );
 });
 
-const MangaListItem = React.memo(({ manga, onClick, imageObserver }) => {
+const MangaListItem = React.memo(({ manga, onClick, imageObserver, toggleLibrary, isInLibrary, mangaDetails }) => {
   const imgRef = useRef(null);
-  
+
   useEffect(() => {
     const img = imgRef.current;
     if (img && imageObserver) {
       imageObserver.observe(img);
     }
-    
+
     return () => {
       if (img && imageObserver) {
         imageObserver.unobserve(img);
       }
     };
   }, [imageObserver]);
-  
+
+  const handleLibraryToggle = (e) => {
+    e.stopPropagation(); // Prevent card click
+    toggleLibrary(manga);
+  };
+
   return (
-    <div className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors cursor-pointer group" onClick={onClick}>
+    <div className="flex gap-3 p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group" onClick={onClick}>
       <div className="relative shrink-0">
         <img
           ref={imgRef}
           data-src={manga.cover_url || manga.cover}
-          className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform bg-gray-800"
+          className="w-14 h-20 object-cover rounded shadow-md group-hover:scale-105 transition-transform bg-gray-800"
           alt={manga.title}
           onError={(e) => {
             e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
@@ -110,10 +136,31 @@ const MangaListItem = React.memo(({ manga, onClick, imageObserver }) => {
         />
       </div>
       <div className="flex-1 min-w-0 flex flex-col justify-center">
-        <p className="font-bold text-white line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight text-base">
+        <p className="font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight text-sm">
           {manga._cleanTitle || cleanTitle(manga.title)}
         </p>
+        {mangaDetails[manga.id] && (
+          <p className="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-widest">
+            {mangaDetails[manga.id].totalChapters} Chapters
+          </p>
+        )}
       </div>
+      {/* Library star button */}
+      <button
+        onClick={handleLibraryToggle}
+        className="shrink-0 p-1.5 rounded-lg hover:bg-white/10 active:scale-90 transition-all duration-200 group/btn"
+        title={isInLibrary(manga.id) ? "Remove from Library" : "Add to Library"}
+      >
+        <Star
+          size={16}
+          fill={isInLibrary(manga.id) ? 'currentColor' : 'none'}
+          className={`transition-colors ${
+            isInLibrary(manga.id)
+              ? 'text-yellow-400 group-hover/btn:text-yellow-300'
+              : 'text-gray-400 group-hover/btn:text-yellow-400'
+          }`}
+        />
+      </button>
     </div>
   );
 });
@@ -132,10 +179,11 @@ const MangaCardSkeleton = () => (
 
 const MangaListItemSkeleton = () => (
   <div className="animate-pulse">
-    <div className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-xl">
-      <div className="w-16 h-20 bg-gray-700 rounded"></div>
-      <div className="flex-1">
-        <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+    <div className="flex gap-3 p-3">
+      <div className="w-14 h-20 bg-gray-700 rounded shrink-0"></div>
+      <div className="flex-1 flex flex-col gap-2 justify-center">
+        <div className="h-3 bg-gray-700 rounded w-3/4"></div>
+        <div className="h-2 bg-gray-700 rounded w-1/2"></div>
       </div>
     </div>
   </div>
@@ -145,7 +193,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [allManga, setAllManga] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20); // 19 items per page to match AsuraScans (322/17 ≈ 19)
+  const [itemsPerPage] = useState(20); 
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('---'); // '---', 'title-asc', 'title-desc'
@@ -155,6 +203,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [mangaDetails, setMangaDetails] = useState({}); // Store basic manga info
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
+  const [library, setLibrary] = useState([]); // Track library manga
 
   // Cache for API responses
   const apiCache = useRef(new Map());
@@ -172,6 +221,13 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Load library from localStorage on mount
+  useEffect(() => {
+    const libraryKey = 'mangaLibrary';
+    const savedLibrary = JSON.parse(localStorage.getItem(libraryKey) || '[]');
+    setLibrary(savedLibrary);
+  }, []);
+
   // Sort options
   const sortOptions = [
     { value: '---', label: 'No Sort' },
@@ -180,6 +236,37 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   ];
 
   const getCurrentOption = () => sortOptions.find(option => option.value === sortBy);
+
+  // Toggle library status for a manga
+  const toggleLibrary = (manga) => {
+    const libraryKey = 'mangaLibrary';
+    const currentLibrary = JSON.parse(localStorage.getItem(libraryKey) || '[]');
+    const inLibrary = currentLibrary.some(item => item.id === manga.id);
+
+    if (inLibrary) {
+      // Remove from library
+      const updatedLibrary = currentLibrary.filter(item => item.id !== manga.id);
+      localStorage.setItem(libraryKey, JSON.stringify(updatedLibrary));
+      setLibrary(updatedLibrary);
+    } else {
+      // Add to library
+      const libraryItem = {
+        id: manga.id,
+        title: manga.title,
+        cover_url: manga.cover_url,
+        cover: manga.cover,
+        dateAdded: new Date().toISOString()
+      };
+      const updatedLibrary = [...currentLibrary, libraryItem];
+      localStorage.setItem(libraryKey, JSON.stringify(updatedLibrary));
+      setLibrary(updatedLibrary);
+    }
+  };
+
+  // Check if manga is in library
+  const isInLibrary = (mangaId) => {
+    return library.some(item => item.id === mangaId);
+  };
   
   // Intersection Observer for lazy loading images
   const imageObserverRef = useRef(null);
@@ -266,11 +353,11 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         const cleanTitleValue = manga._cleanTitle || (manga._cleanTitle = cleanTitle(title));
         const lowerTitle = manga._lowerTitle || (manga._lowerTitle = title.toLowerCase());
         const lowerCleanTitle = manga._lowerCleanTitle || (manga._lowerCleanTitle = cleanTitleValue.toLowerCase());
-        
+
         return lowerTitle.includes(query) || lowerCleanTitle.includes(query);
       });
     }
-    
+
     // Apply sorting (optimized)
     const sorted = sortBy === '---' ? [...filtered] : [...filtered].sort((a, b) => {
       let aValue, bValue;
@@ -408,21 +495,92 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     }
   }, [mangaDetails, currentPage]);
 
+  // Function to load remaining pages in background (defined outside to avoid initialization issues)
+  const loadMorePagesRef = useRef(null);
+
+  loadMorePagesRef.current = async (startPage, endPage, existingData, cacheKey) => {
+    console.log(`🔄 loadMorePages called: start=${startPage}, end=${endPage}, existing=${existingData.length}`);
+    let mangaData = [...existingData];
+
+    for (let page = startPage; page <= endPage; page++) {
+      try {
+        // console.log(`📄 Loading page ${page} in background...`);
+        // for prod
+        const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
+        //for localhost
+        // const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
+        // console.log(`Fetching: ${pageUrl}`);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(pageUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        // console.log(`📡 Response status: ${response.status} for page ${page}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          const pageManga = data.manga || [];
+          // console.log(`📊 Page ${page} data:`, { manga: pageManga.length, totalManga: data.total });
+
+          if (pageManga.length === 0) {
+            // console.log(`🏁 No more manga found on page ${page}, stopping`);
+            break;
+          }
+
+          mangaData = [...mangaData, ...pageManga];
+          // console.log(`✅ Page ${page} loaded: ${pageManga.length} manga, total: ${mangaData.length}`);
+
+          // Don't update estimated pages downward - we know there are 17 pages total
+          const currentEstimated = Math.ceil(mangaData.length / itemsPerPage);
+          if (currentEstimated > estimatedTotalPages) {
+            setEstimatedTotalPages(currentEstimated);
+            // console.log(`📄 Updated pagination: ${currentEstimated} pages estimated`);
+          } else {
+            // console.log(`📄 Keeping pagination at ${estimatedTotalPages} pages (loaded: ${currentEstimated})`);
+          }
+
+          // Update display with new data
+          setAllManga([...mangaData]);
+
+          // Small delay between pages
+          await new Promise(resolve => setTimeout(resolve, 200));
+        } else {
+          console.warn(`⚠️ Page ${page} failed: ${response.status}`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ Error loading page ${page}:`, err);
+      }
+    }
+
+    // Cache final data
+    const finalCacheData = {
+      allManga: mangaData,
+      timestamp: Date.now()
+    };
+    apiCache.current.set(cacheKey, finalCacheData);
+    setPersistentCache(cacheKey, finalCacheData);
+
+    console.log(`🎉 All pages loaded! Total manga: ${mangaData.length}`);
+    setBackgroundLoading(false);
+  };
+
   // Fetch all manga with persistent caching
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
     const cacheKey = 'allManga';
-    
-    // Check persistent cache first (unless force refresh)
+
+    // Check persistent cache
     if (!forceRefresh) {
       const persistentCache = getPersistentCache(cacheKey);
       if (persistentCache) {
         setAllManga(persistentCache.allManga);
-        
+
         // Also store in memory cache for this session
         apiCache.current.set(cacheKey, persistentCache);
-        
+
         setLoading(false);
-        
+
         // Load cached manga info
         const cachedInfo = {};
         Object.keys(mangaDetails).forEach(mangaId => {
@@ -434,7 +592,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         if (Object.keys(cachedInfo).length > 0) {
           setMangaDetails(cachedInfo);
         }
-        
+
         return;
       }
     }
@@ -443,7 +601,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       setLoading(true);
       setFetchError(null);
       if (forceRefresh) setIsRefreshing(true);
-      
+
       // Check cache first for instant display
       const cached = apiCache.current.get(cacheKey) || getPersistentCache(cacheKey);
       if (cached && !forceRefresh) {
@@ -458,99 +616,37 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         console.log('📦 Showing cached collections while updating...');
         setAllManga(cached.allManga);
       }
-      
+
       // Progressive loading - fetch page 1 first, then load more pages in background
       let allMangaData = [];
+      let startPage = 1;
       const maxPages = 20; // Load up to 20 pages
-      
-      // Function to load remaining pages in background (defined first)
-      const loadMorePages = async (startPage, endPage, existingData) => {
-        console.log(`🔄 loadMorePages called: start=${startPage}, end=${endPage}, existing=${existingData.length}`);
-        let mangaData = [...existingData];
-        
-        for (let page = startPage; page <= endPage; page++) {
-          try {
-            // console.log(`📄 Loading page ${page} in background...`);
-            // for prod
-            const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
-            //for localhost
-            // const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
-            // console.log(`Fetching: ${pageUrl}`);
-            
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-            
-            const response = await fetch(pageUrl, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            
-            // console.log(`📡 Response status: ${response.status} for page ${page}`);
-            
-            if (response.ok) {
-              const data = await response.json();
-              const pageManga = data.manga || [];
-              // console.log(`📊 Page ${page} data:`, { manga: pageManga.length, totalManga: data.total });
-              
-              if (pageManga.length === 0) {
-                // console.log(`🏁 No more manga found on page ${page}, stopping`);
-                break;
-              }
-              
-              mangaData = [...mangaData, ...pageManga];
-              // console.log(`✅ Page ${page} loaded: ${pageManga.length} manga, total: ${mangaData.length}`);
-              
-              // Don't update estimated pages downward - we know there are 17 pages total
-              const currentEstimated = Math.ceil(mangaData.length / itemsPerPage);
-              if (currentEstimated > estimatedTotalPages) {
-                setEstimatedTotalPages(currentEstimated);
-                // console.log(`📄 Updated pagination: ${currentEstimated} pages estimated`);
-              } else {
-                // console.log(`📄 Keeping pagination at ${estimatedTotalPages} pages (loaded: ${currentEstimated})`);
-              }
-              
-              // Update display with new data
-              setAllManga([...mangaData]);
-              
-              // Small delay between pages
-              await new Promise(resolve => setTimeout(resolve, 200));
-            } else {
-              console.warn(`⚠️ Page ${page} failed: ${response.status}`);
-            }
-          } catch (err) {
-            console.warn(`⚠️ Error loading page ${page}:`, err);
-          }
-        }
-        
-        // Cache final data
-        const finalCacheData = {
-          allManga: mangaData,
-          timestamp: Date.now()
-        };
-        apiCache.current.set(cacheKey, finalCacheData);
-        setPersistentCache(cacheKey, finalCacheData);
-        
-        console.log(`🎉 All pages loaded! Total manga: ${mangaData.length}`);
-        setBackgroundLoading(false);
-      };
-      
-      // Fetch page 1 immediately and display it
+
+      // Fetch first page (or resume from saved page) immediately and display it
       try {
-        console.log('� Fetching page 1 immediately...');
-        const page1Url = `${API_URL}api/kaynscan/browse/?page=1`;
+        console.log(`📄 Fetching page ${startPage} immediately...`);
+        const page1Url = `${API_URL}api/kaynscan/browse/?page=${startPage}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // Short timeout for first page
-        
+
         const response = await fetch(page1Url, { signal: controller.signal });
         clearTimeout(timeoutId);
-        
+
         if (response.ok) {
           const data = await response.json();
           const page1Manga = data.manga || [];
-          allMangaData = [...page1Manga];
-          
-          // console.log(`✅ Page 1 loaded: ${page1Manga.length} manga`);
-          setAllManga(allMangaData); // Display page 1 immediately!
-          setLoading(false); // Stop loading after page 1
-          
+
+          // If resuming from saved progress, append to existing data
+          if (allMangaData.length > 0) {
+            allMangaData = [...allMangaData, ...page1Manga];
+          } else {
+            allMangaData = [...page1Manga];
+          }
+
+          // console.log(`✅ Page ${startPage} loaded: ${page1Manga.length} manga`);
+          setAllManga(allMangaData); // Display immediately!
+          setLoading(false); // Stop loading after first page
+
           // Cache initial data
           const cacheData = {
             allManga: allMangaData,
@@ -558,16 +654,16 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           };
           apiCache.current.set(cacheKey, cacheData);
           setPersistentCache(cacheKey, cacheData);
-          
+
           // Continue loading more pages in background
-          console.log('🔄 Starting background loading for pages 2-20...');
+          console.log(`🔄 Starting background loading for pages ${startPage + 1}-${maxPages}...`);
           setBackgroundLoading(true);
-          loadMorePages(2, maxPages, allMangaData);
+          loadMorePagesRef.current(startPage + 1, maxPages, allMangaData, cacheKey);
         } else {
-          throw new Error(`Page 1 request failed: ${response.status}`);
+          throw new Error(`Page ${startPage} request failed: ${response.status}`);
         }
       } catch (err) {
-        console.error("Page 1 fetch error:", err);
+        console.error(`Page ${startPage} fetch error:`, err);
         throw err;
       }
       
@@ -682,11 +778,13 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {items.map((manga, index) => (
-          <MangaCard 
-            key={manga.id || index} 
+          <MangaCard
+            key={manga.id || index}
             manga={manga}
             onClick={() => onMangaDetails(manga)}
             imageObserver={imageObserverRef.current}
+            toggleLibrary={toggleLibrary}
+            isInLibrary={isInLibrary}
           />
         ))}
         {/* Show skeleton loading if page is still loading */}
@@ -717,11 +815,14 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     return (
       <div className="space-y-3">
         {items.map((manga, index) => (
-          <MangaListItem 
-            key={manga.id || index} 
+          <MangaListItem
+            key={manga.id || index}
             manga={manga}
             onClick={() => onMangaDetails(manga)}
             imageObserver={imageObserverRef.current}
+            toggleLibrary={toggleLibrary}
+            isInLibrary={isInLibrary}
+            mangaDetails={mangaDetails}
           />
         ))}
         {/* Show skeleton loading if page is still loading */}
@@ -815,8 +916,8 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
                 className="flex items-center gap-3 px-4 py-2.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white hover:bg-white/[0.06] transition-all text-sm focus:border-blue-500/50 outline-none"
               >
                 <span>{getCurrentOption()?.label}</span>
-                <ChevronDown 
-                  size={16} 
+                <ChevronDown
+                  size={16}
                   className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
                 />
               </button>
