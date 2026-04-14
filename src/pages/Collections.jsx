@@ -506,9 +506,9 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       try {
         // console.log(`📄 Loading page ${page} in background...`);
         // for prod
-        const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
+        // const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
         //for localhost
-        // const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
+        const pageUrl = `http://10.7.6.205:8000/api/kaynscan/browse/?page=${page}`;
         // console.log(`Fetching: ${pageUrl}`);
 
         const controller = new AbortController();
@@ -593,6 +593,14 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           setMangaDetails(cachedInfo);
         }
 
+        // Continue loading more pages in background if cache is incomplete
+        const currentPageCount = Math.ceil(persistentCache.allManga.length / itemsPerPage);
+        const maxPages = 20;
+        if (currentPageCount < maxPages) {
+          console.log(`🔄 Resuming background loading from page ${currentPageCount + 1}...`);
+          setBackgroundLoading(true);
+          loadMorePagesRef.current(currentPageCount + 1, maxPages, persistentCache.allManga, cacheKey);
+        }
         return;
       }
     }
