@@ -84,7 +84,7 @@ const MangaCard = ({ title, coverUrl, onClick, isLoading = false, rating }) => {
           {rating && (
             <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/80 backdrop-blur-md border border-white/10 px-2 py-1 rounded-lg">
               <Star size={10} className="text-yellow-400" fill="currentColor" />
-              <span className="text-[10px] font-black text-white leading-none">
+              <span className="text-[10px] font-semibold leading-none" style={{ color: darkMode ? '#e5e7eb' : '#ffffff' }}>
                 {rating}
               </span>
             </div>

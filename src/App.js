@@ -8,6 +8,8 @@ import Collections from './pages/Collections';
 import Library from './pages/Library';
 import Settings from './pages/Settings';
 import Reader from './pages/Reader';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CollectionsProvider } from './contexts/CollectionsContext';
 import './App.css';
@@ -105,6 +107,8 @@ function AppContent() {
     if (path.startsWith('/history')) return 'history';
     if (path.startsWith('/library')) return 'library';
     if (path.startsWith('/settings')) return 'settings';
+    if (path.startsWith('/login')) return 'login';
+    if (path.startsWith('/profile')) return 'profile';
     return 'home';
   };
 
@@ -131,6 +135,40 @@ function AppContent() {
         <Route path="/library" element={<Library onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/more" element={<Settings />} />
+        <Route path="/login" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Login />
+          </Layout>
+        } />
+        <Route path="/profile" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Profile />
+          </Layout>
+        } />
         <Route 
           path="/details/:mangaId" 
           element={

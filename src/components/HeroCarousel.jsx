@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
+  const { darkMode } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
@@ -120,25 +122,25 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
 
   if (isLoading) {
     return (
-      <div className="relative w-full bg-[#050505] overflow-hidden group/carousel">
+      <div className={`relative w-full ${darkMode ? 'bg-[#050505]' : 'bg-[#FAFAF8]'} overflow-hidden group/carousel`}>
         {/* Loading Skeleton - Single centered item */}
         <div 
           ref={scrollRef}
           className="relative flex justify-center items-center px-10 md:px-20 h-[500px] md:h-[600px]"
         >
           <div className="flex-shrink-0 w-[300px] md:w-[400px] transition-all duration-500 ease-out">
-            <div className="rounded-xl overflow-hidden bg-gray-800/50 border border-white/10">
-              <div className="w-full aspect-[3/4.5] bg-gray-700/50 animate-pulse" />
+            <div className={`rounded-xl overflow-hidden ${darkMode ? 'bg-gray-800/50 border-white/10' : 'bg-stone-100 border-stone-200'} border`}>
+              <div className={`w-full aspect-[3/4.5] ${darkMode ? 'bg-gray-700/50' : 'bg-stone-200'} animate-pulse`} />
             </div>
           </div>
         </div>
         
         {/* Navigation Skeletons */}
-        <button className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#050505] to-transparent flex items-center justify-start pl-4 opacity-50">
-          <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse" />
+        <button className={`absolute left-0 top-0 bottom-0 w-20 ${darkMode ? 'bg-gradient-to-r from-[#050505]' : 'bg-gradient-to-r from-[#FAFAF8]'} to-transparent flex items-center justify-start pl-4 opacity-50`}>
+          <div className={`w-8 h-8 ${darkMode ? 'bg-gray-700/50' : 'bg-stone-300'} rounded-full animate-pulse`} />
         </button>
-        <button className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#050505] to-transparent flex items-center justify-end pr-4 opacity-50">
-          <div className="w-8 h-8 bg-gray-700/50 rounded-full animate-pulse" />
+        <button className={`absolute right-0 top-0 bottom-0 w-20 ${darkMode ? 'bg-gradient-to-l from-[#050505]' : 'bg-gradient-to-l from-[#FAFAF8]'} to-transparent flex items-center justify-end pr-4 opacity-50`}>
+          <div className={`w-8 h-8 ${darkMode ? 'bg-gray-700/50' : 'bg-stone-300'} rounded-full animate-pulse`} />
         </button>
       </div>
     );
@@ -149,7 +151,7 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
   return (
     <div 
       ref={containerRef}
-      className="relative w-full bg-[#050505] overflow-hidden group/carousel select-none"
+      className={`relative w-full ${darkMode ? 'bg-[#050505]' : 'bg-[#FAFAF8]'} overflow-hidden group/carousel select-none`}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -187,7 +189,7 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
             {/* Rating Tag (Top Left) */}
             <div className="absolute top-2 left-2 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10">
               <Star size={10} className="text-yellow-400" fill="currentColor" />
-              <span className="text-[10px] font-bold text-white">{item.rating || 'N/A'}</span>
+              <span className="text-[10px] font-semibold leading-none" style={{ color: darkMode ? '#e5e7eb' : '#ffffff' }}>{item.rating || 'N/A'}</span>
             </div>
 
             {/* Poster Image */}
@@ -213,9 +215,9 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
       <button
         onClick={() => scroll('left')}
         disabled={currentIndex === 0}
-        className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#050505] to-transparent flex items-center justify-start pl-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity z-50 disabled:opacity-30"
+        className={`absolute left-0 top-0 bottom-0 w-20 ${darkMode ? 'bg-gradient-to-r from-[#050505]' : 'bg-gradient-to-r from-[#FAFAF8]'} to-transparent flex items-center justify-start pl-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity z-50 disabled:opacity-30`}
       >
-        <div className="p-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all">
+        <div className={`p-3 rounded-full ${darkMode ? 'bg-white/5 border-white/10 hover:bg-white/20' : 'bg-stone-100 border-stone-200 hover:bg-stone-200'} backdrop-blur-md border transition-all`}>
           <ChevronLeft size={30} />
         </div>
       </button>
@@ -223,9 +225,9 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
       <button
         onClick={() => scroll('right')}
         disabled={currentIndex === manga.length - 1}
-        className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#050505] to-transparent flex items-center justify-end pr-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity z-50 disabled:opacity-30"
+        className={`absolute right-0 top-0 bottom-0 w-20 ${darkMode ? 'bg-gradient-to-l from-[#050505]' : 'bg-gradient-to-l from-[#FAFAF8]'} to-transparent flex items-center justify-end pr-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity z-50 disabled:opacity-30`}
       >
-        <div className="p-3 rounded-full bg-white/5 backdrop-blur-md border border-white/10 hover:bg-white/20 transition-all">
+        <div className={`p-3 rounded-full ${darkMode ? 'bg-white/5 border-white/10 hover:bg-white/20' : 'bg-stone-100 border-stone-200 hover:bg-stone-200'} backdrop-blur-md border transition-all`}>
           <ChevronRight size={30} />
         </div>
       </button>
@@ -241,8 +243,8 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
             }}
             className={`w-2 h-2 rounded-full transition-all ${
               index === currentIndex 
-                ? 'bg-white w-8' 
-                : 'bg-white/30 hover:bg-white/50'
+                ? `${darkMode ? 'bg-white' : 'bg-black'} w-8` 
+                : `${darkMode ? 'bg-white/30 hover:bg-white/50' : 'bg-black/30 hover:bg-black/50'}`
             }`}
           />
         ))}

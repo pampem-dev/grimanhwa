@@ -35,8 +35,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       const cached = localStorage.getItem(`mangaCache_${key}`);
       if (cached) {
         const data = JSON.parse(cached);
-        // Check if cache is still valid (5 minutes)
-        if (Date.now() - data.timestamp < 5 * 60 * 1000) {
+        // Check if cache is still valid (30 minutes)
+        if (Date.now() - data.timestamp < 30 * 60 * 1000) {
           return data;
         }
       }
@@ -226,14 +226,16 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   // Fetch chapters when page changes (but only for new items) - DISABLED TO STOP LOOP
   useEffect(() => {
-    if (currentItems.length > 0 && !loadingRecent) {
-      fetchChaptersForPage(currentItems);
-    }
-  }, [currentPage, currentItems.length, loadingRecent]); // Removed fetchChaptersForPage and currentItems from deps
+    // Disabled automatic chapter fetching for faster initial load
+    // Chapters will be fetched on-demand when user interacts
+    // if (currentItems.length > 0 && !loadingRecent) {
+    //   fetchChaptersForPage(currentItems);
+    // }
+  }, [currentPage, currentItems.length, loadingRecent]);
 
   // Fetch chapters in batches for better performance
   const fetchChaptersBatch = useCallback(async (mangaList) => {
-    const batchSize = 5;
+    const batchSize = 3; // Reduced from 5 to 3 for faster initial load
     const batches = [];
     
     for (let i = 0; i < mangaList.length; i += batchSize) {
@@ -266,7 +268,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         
         // Small delay between batches to prevent overwhelming API
         if (batches.length > 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 200ms to 100ms
         }
       } catch (error) {
         console.error('Error fetching chapter batch:', error);
@@ -278,65 +280,63 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
     const cacheKey = 'allManga_v2'; // Updated cache key to invalidate old cache
     
-    // Check persistent cache first (unless force refresh)
-    if (!forceRefresh) {
-      const persistentCache = getPersistentCache(cacheKey);
-      if (persistentCache) {
-        console.log('Using cached data');
-        const { allManga, featured, trending, recent, topRated } = persistentCache;
-        setAllMangaList(allManga);
-        setFeaturedManga(featured);
-        setTrendingManga(trending);
-        setRecentManga(recent);
-        // If topRated is in cache, use it. Otherwise, sort by rating
-        if (topRated) {
-          setTopRatedManga(topRated);
-        } else {
-          // Sort by rating and take top 10
-          const sortedByRating = [...allManga].sort((a, b) => {
-            const ratingA = a.rating || 0;
-            const ratingB = b.rating || 0;
-            return ratingB - ratingA;
-          });
-          setTopRatedManga(sortedByRating.slice(0, 10));
-        }
-        
-        // Also store in memory cache for this session
-        apiCache.current.set(cacheKey, persistentCache);
-        
-        setLoadingTrending(false);
-        setLoadingRecent(false);
-        setLoadingPopular(false);
-        setLoadingTopRated(false);
-        
-        // Load cached chapters
-        const cachedChapters = {};
-        Object.keys(latestChapters).forEach(mangaId => {
-          const chapterCache = getPersistentCache(`chapter_${mangaId}`);
-          if (chapterCache) {
-            cachedChapters[mangaId] = chapterCache.data;
-          }
+    // Always show cached data immediately if available (even during refresh)
+    const persistentCache = getPersistentCache(cacheKey);
+    if (persistentCache) {
+      console.log('Using cached data');
+      const { allManga, featured, trending, recent, topRated } = persistentCache;
+      setAllMangaList(allManga);
+      setFeaturedManga(featured);
+      setTrendingManga(trending);
+      setRecentManga(recent);
+      // If topRated is in cache, use it. Otherwise, sort by rating
+      if (topRated) {
+        setTopRatedManga(topRated);
+      } else {
+        // Sort by rating and take top 10
+        const sortedByRating = [...allManga].sort((a, b) => {
+          const ratingA = a.rating || 0;
+          const ratingB = b.rating || 0;
+          return ratingB - ratingA;
         });
-        if (Object.keys(cachedChapters).length > 0) {
-          setLatestChapters(cachedChapters);
-        }
-        
-        return;
+        setTopRatedManga(sortedByRating.slice(0, 10));
       }
+      
+      // Also store in memory cache for this session
+      apiCache.current.set(cacheKey, persistentCache);
+      
+      setLoadingTrending(false);
+      setLoadingRecent(false);
+      setLoadingPopular(false);
+      setLoadingTopRated(false);
+      
+      // Load cached chapters
+      const cachedChapters = {};
+      Object.keys(latestChapters).forEach(mangaId => {
+        const chapterCache = getPersistentCache(`chapter_${mangaId}`);
+        if (chapterCache) {
+          cachedChapters[mangaId] = chapterCache.data;
+        }
+      });
+      if (Object.keys(cachedChapters).length > 0) {
+        setLatestChapters(cachedChapters);
+      }
+      
+      // If not force refresh, return early (showing cached data)
+      if (!forceRefresh) return;
     }
 
+    // Fetch fresh data in background (only if force refresh or no cache)
     try {
-      // console.log('Starting fresh manga fetch...');
       setFetchError(null);
       if (forceRefresh) setIsRefreshing(true);
       
       // Always use backend API from environment
       const apiUrl = API_ENDPOINTS.SEARCH('a');
-      // console.log('Using API URL:', apiUrl);
       
-      // Add timeout to prevent hanging requests
+      // Reduced timeout to fail faster and show cached data
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for web scraping
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const response = await fetch(apiUrl, { 
         signal: controller.signal,
@@ -347,11 +347,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       });
       clearTimeout(timeoutId);
       
-      // console.log('Fetch response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
-        // console.log('API response data:', data);
         const allManga = getMangaList(data);
         
         if (allManga.length === 0) {
@@ -363,7 +360,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         
         // Create non-overlapping slices for each section with fallbacks
         const totalManga = allManga.length;
-        // console.log('Total manga available:', totalManga);
 
         // Sort all manga by rating (highest first) for topRated section
         const sortedByRating = [...allManga].sort((a, b) => {
@@ -372,7 +368,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           return ratingB - ratingA; // Descending order
         });
         const topRated = sortedByRating.slice(0, 10); // Top 10 highest rated
-        // console.log('Top 10 rated manga:', topRated.map(m => ({ title: m.title, rating: m.rating })));
 
         // If we have enough manga, use non-overlapping slices
         let featured, trending, recent;
@@ -386,8 +381,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           const remaining = totalManga - trendingSize;
           const featuredSize = Math.floor(remaining / 2);
           const recentSize = remaining - featuredSize;
-          
-          // console.log('Using adjusted slices - trending:', trendingSize, 'featured:', featuredSize, 'recent:', recentSize);
 
           featured = allManga.slice(0, featuredSize);
           trending = allManga.slice(featuredSize, featuredSize + trendingSize);
@@ -405,7 +398,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           featured,
           trending,
           recent,
-          topRated, // Store the sorted top 10
+          topRated,
           timestamp: Date.now()
         };
         apiCache.current.set(cacheKey, cacheData);
@@ -421,7 +414,10 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       }
     } catch (err) {
       console.error("Home fetch error:", err);
-      setFetchError(err.message);
+      // If we have cached data, don't show error - just use cached
+      if (!persistentCache) {
+        setFetchError(err.message);
+      }
       setLoadingTrending(false);
       setLoadingRecent(false);
       setLoadingPopular(false);
@@ -611,7 +607,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const renderTopRated = () => (
     <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5">
       <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-        <Star className="text-yellow-500" size={18} fill="currentColor" />
+        <Star className={darkMode ? 'text-yellow-400' : 'text-yellow-500'} size={18} fill="currentColor" />
         Popular
       </h2>
       <div className="space-y-3">
@@ -642,14 +638,14 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                     #{index + 1}
                   </div>
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0" style={{ color: darkMode ? '#e5e7eb' : '#1f2937' }}>
                   <h3 className={`text-sm font-bold line-clamp-2 leading-tight group-hover:text-blue-400 transition-colors ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                     {manga.title}
                   </h3>
                   {manga.rating && (
                     <div className="flex items-center gap-1 mt-1">
-                      <Star size={10} className="text-yellow-400" fill="currentColor" />
-                      <span className="text-xs text-gray-400">{manga.rating}</span>
+                      <Star size={10} className={darkMode ? 'text-yellow-400' : 'text-yellow-500'} fill="currentColor" />
+                      <span className="text-xs" style={{ color: darkMode ? '#9ca3af !important' : '#374151 !important' }}>{manga.rating}</span>
                     </div>
                   )}
                 </div>
