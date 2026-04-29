@@ -710,7 +710,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           <div className="text-sm text-gray-400">
             {searchQuery ? 
               `${filteredAndSortedManga.length} found` : 
-              contextBackgroundLoading ? `~323 total (${allManga.length} loaded)` : `${allManga.length} total`
+              contextBackgroundLoading ? `~326 total (${allManga.length} loaded)` : `${allManga.length} total`
             }
           </div>
         </div>

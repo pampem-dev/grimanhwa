@@ -1,7 +1,7 @@
 // Central API configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL;
+// const API_BASE_URL = process.env.REACT_APP_API_URL;
 // const API_BASE_URL = 'http://127.0.0.1:8000/';
-// const API_BASE_URL = 'http://10.7.6.205:8000/';
+const API_BASE_URL = 'http://10.7.6.206:8000/';
 
 
 // Export base URL and helper functions
@@ -18,33 +18,39 @@ export const createApiUrl = (endpoint) => {
 export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for production
-      
+      // Use external signal if provided, otherwise create internal controller
+      const controller = options.signal ? null : new AbortController();
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 60000) : null; // 60s timeout for production
+
       const response = await fetch(url, {
         ...options,
-        signal: controller.signal,
+        signal: options.signal || controller?.signal,
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           ...options.headers
         }
       });
-      
-      clearTimeout(timeoutId);
-      
+
+      if (timeoutId) clearTimeout(timeoutId);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       return response;
     } catch (error) {
+      // Don't retry on AbortError (intentional cancellation)
+      if (error.name === 'AbortError' || error.message.includes('aborted')) {
+        throw error;
+      }
+
       console.error(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
-      
+
       if (attempt === maxRetries) {
         throw error;
       }
-      
+
       // Wait before retry (exponential backoff)
       const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
       await new Promise(resolve => setTimeout(resolve, delay));
