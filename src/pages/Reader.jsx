@@ -355,17 +355,8 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                 const currentNum = getChapterNumber(currentChapter.id);
                 const previousNum = getChapterNumber(previousChapter.id);
                 
-                // Only scroll to last page if going backwards AND the previous chapter was the URL chapter
-                // This prevents scrolling to end when reaching end of chapter naturally
-                if (currentNum < previousNum && previousChapter.id === chapterId) {
-                  // console.log('Going backwards - scrolling to last page of chapter:', currentNum);
-                  const lastPageIndex = currentChapter.pages.length - 1;
-                  setTimeout(() => {
-                    scrollToPage(currentChapter.id, lastPageIndex);
-                  }, 100);
-                }
-                // If going to a next chapter, mark the current chapter as read
-                else if (currentNum > previousNum && mangaId) {
+                // Mark chapter as read when transitioning (both forward and backward)
+                if (currentNum !== previousNum && mangaId) {
                   try {
                     const readChaptersKey = `manga_read_chapters_${mangaId}`;
                     const readChaptersData = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
