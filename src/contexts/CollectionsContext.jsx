@@ -210,7 +210,7 @@ export const CollectionsProvider = ({ children }) => {
     }
   }, [loading]);
 
-  // Load manga details for current page
+  // Load manga details for current page - with latest_only optimization
   useEffect(() => {
     if (!allManga.length) return;
 
@@ -228,7 +228,8 @@ export const CollectionsProvider = ({ children }) => {
               return { mangaId: manga.id, info: JSON.parse(cachedInfo) };
             }
 
-            const response = await fetch(`${API_URL}api/kaynscan/manga/?id=${encodeURIComponent(manga.id)}`);
+            // Use the dedicated latest chapter endpoint for faster loading
+            const response = await fetch(`${API_URL}api/kaynscan/latest-chapter/?id=${encodeURIComponent(manga.id)}`);
             if (response.ok) {
               const info = await response.json();
               localStorage.setItem(infoKey, JSON.stringify(info));

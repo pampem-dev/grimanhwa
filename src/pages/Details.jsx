@@ -498,7 +498,15 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
   const cleanTitle = (title) => {
     if (!title) return title;
-    return title.replace(/^\d+\.\d+/, '');
+    // Remove rating pattern at the beginning (e.g., "2239.9")
+    let cleaned = title.replace(/^\d+\.\d+/, '');
+    // Remove "Chapter" and following numbers when concatenated without space
+    cleaned = cleaned.replace(/Chapter\d+(\.\d+)?/gi, '');
+    // Remove "Ch." and following numbers when concatenated without space
+    cleaned = cleaned.replace(/Ch\.?\d+(\.\d+)?/gi, '');
+    // Remove extra whitespace
+    cleaned = cleaned.trim();
+    return cleaned;
   };
 
   const extractChapterNumber = (ch) => {
@@ -588,56 +596,59 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   }, [manga]);
 
   const fetchChapters = async (forceRefresh = false) => {
-    setLoading(true);
+    const cached = readDetailsCache(manga.id);
+    if (cached && !forceRefresh) {
+      setMangaDetails((prev) => ({
+        ...prev,
+        description: cached.description || prev.description,
+        status: cached.status || prev.status,
+        alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
+      }));
+      // Handle both old format (array) and new format (object)
+      const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
+      setChapters(sortChapters(cachedChapters));
+      setLoading(false);
+      return;
+    }
+
+    // Show cached data immediately while fetching fresh data in background
+    if (cached && forceRefresh) {
+      const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
+      setChapters(sortChapters(cachedChapters));
+      setMangaDetails((prev) => ({
+        ...prev,
+        description: cached.description || prev.description,
+        status: cached.status || prev.status,
+        alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
+      }));
+      setLoading(false); // Don't show loading state
+      setIsBackgroundRefreshing(true); // Show subtle refresh indicator
+    }
+
+    // OPTIMIZATION: Check if we already have chapters from Home page navigation
+    if (manga.chapters && manga.chapters.length > 0 && !forceRefresh) {
+      const sorted = sortChapters(manga.chapters);
+      setChapters(sorted);
+      setLoading(false);
+
+      // Cache the existing data for future use
+      writeDetailsCache(manga.id, {
+        description: manga.description || '',
+        status: manga.status || '',
+        chapters: sorted
+      });
+      return;
+    }
+
+    // Only show loading if we have no data at all
+    if (!cached && (!manga.chapters || manga.chapters.length === 0)) {
+      setLoading(true);
+    }
+
     try {
-      // Always check cache first for instant display
-      const cached = readDetailsCache(manga.id);
-      if (cached && !forceRefresh) {
-        setMangaDetails((prev) => ({
-          ...prev,
-          description: cached.description || prev.description,
-          status: cached.status || prev.status,
-          alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
-        }));
-        // Handle both old format (array) and new format (object)
-        const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
-        setChapters(sortChapters(cachedChapters));
-        setLoading(false);
-        return;
-      }
-
-      // Show cached data immediately while fetching fresh data in background
-      if (cached && forceRefresh) {
-        const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
-        setChapters(sortChapters(cachedChapters));
-        setMangaDetails((prev) => ({
-          ...prev,
-          description: cached.description || prev.description,
-          status: cached.status || prev.status,
-          alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
-        }));
-        setLoading(false); // Don't show loading state
-        setIsBackgroundRefreshing(true); // Show subtle refresh indicator
-      }
-
-      // OPTIMIZATION: Check if we already have chapters from Home page navigation
-      if (manga.chapters && manga.chapters.length > 0 && !forceRefresh) {
-        const sorted = sortChapters(manga.chapters);
-        setChapters(sorted);
-        setLoading(false);
-
-        // Cache the existing data for future use
-        writeDetailsCache(manga.id, {
-          description: manga.description || '',
-          status: manga.status || '',
-          chapters: sorted
-        });
-        return;
-      }
-
-      // Add timeout to prevent hanging
+      // Add timeout to prevent hanging - reduced to 5 seconds for faster feedback
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Request timeout')), 8000) // 8s timeout for faster response
+        setTimeout(() => reject(new Error('Request timeout')), 5000)
       );
 
       const response = await Promise.race([

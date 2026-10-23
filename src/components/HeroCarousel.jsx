@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { API_ENDPOINTS } from '../config/api';
 
-const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
+const HeroCarousel = React.memo(({ manga, onMangaClick, isLoading = false }) => {
   const { darkMode } = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -10,6 +11,28 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
   const [dragOffset, setDragOffset] = useState(0);
   const scrollRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Extract rating from title if not present
+  const extractRating = (item) => {
+    if (item.rating) return item.rating;
+    if (!item.title) return 'N/A';
+    const match = item.title.match(/^(\d+\.\d+)/);
+    return match ? match[1] : 'N/A';
+  };
+
+  // Preload first 5 images for smooth carousel
+  useEffect(() => {
+    if (!manga || manga.length === 0) return;
+
+    const preloadCount = Math.min(5, manga.length);
+    for (let i = 0; i < preloadCount; i++) {
+      const img = new Image();
+      const coverUrl = manga[i].cover_url || manga[i].cover;
+      if (coverUrl) {
+        img.src = coverUrl.startsWith('http') ? coverUrl : API_ENDPOINTS.COVER_URL(coverUrl);
+      }
+    }
+  }, [manga]);
 
   const scrollToIndex = (index) => {
     const { current } = scrollRef;
@@ -189,7 +212,7 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
             {/* Rating Tag (Top Left) */}
             <div className="absolute top-2 left-2 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10">
               <Star size={10} className="text-yellow-400" fill="currentColor" />
-              <span className="text-[10px] font-semibold leading-none" style={{ color: darkMode ? '#e5e7eb' : '#ffffff' }}>{item.rating || 'N/A'}</span>
+              <span className="text-[10px] font-semibold leading-none" style={{ color: darkMode ? '#e5e7eb' : '#ffffff' }}>{extractRating(item)}</span>
             </div>
 
             {/* Poster Image */}
@@ -251,6 +274,6 @@ const HeroCarousel = ({ manga, onMangaClick, isLoading = false }) => {
       </div>
     </div>
   );
-};
+});
 
 export default HeroCarousel;

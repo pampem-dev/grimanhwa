@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Star } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -15,7 +15,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-const MangaCard = ({ title, coverUrl, onClick, isLoading = false, rating }) => {
+const MangaCard = memo(({ title, coverUrl, onClick, isLoading = false, rating }) => {
   const { darkMode } = useTheme();
   if (isLoading) return <SkeletonCard />;
 
@@ -105,6 +105,6 @@ const MangaCard = ({ title, coverUrl, onClick, isLoading = false, rating }) => {
       </div>
     </div>
   );
-};
+});
 
 export default MangaCard;

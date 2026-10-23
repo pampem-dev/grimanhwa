@@ -1,18 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
-import Home from './pages/Home';
-import Details from './pages/Details';
-import History from './pages/History';
-import Collections from './pages/Collections';
-import Library from './pages/Library';
-import Settings from './pages/Settings';
-import Reader from './pages/Reader';
-import Login from './pages/Login';
-import Profile from './pages/Profile';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CollectionsProvider } from './contexts/CollectionsContext';
 import './App.css';
+
+// Lazy load pages for code splitting
+const Home = lazy(() => import('./pages/Home'));
+const Details = lazy(() => import('./pages/Details'));
+const History = lazy(() => import('./pages/History'));
+const Collections = lazy(() => import('./pages/Collections'));
+const Library = lazy(() => import('./pages/Library'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Reader = lazy(() => import('./pages/Reader'));
+const Login = lazy(() => import('./pages/Login'));
+const Profile = lazy(() => import('./pages/Profile'));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-[#050505]">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+  </div>
+);
 
 // App content component that uses router hooks
 function AppContent() {
@@ -113,28 +122,127 @@ function AppContent() {
   };
 
   return (
-    <Layout
-      currentPage={getCurrentPage()}
-      setCurrentPage={(page) => navigate(`/${page}`)}
-      onMangaSelect={(manga) => {
-        setDetailsManga(manga);
-        setActiveMangaId(null);
-        // Cache the manga for faster loading if user navigates directly via URL
-        localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
-          data: manga,
-          timestamp: Date.now()
-        }));
-        navigate(`/details/${encodeURIComponent(manga.id)}`);
-      }}
-    >
+    <Suspense fallback={<PageLoader />}>
       <Routes>
-        <Route path="/" element={<Home onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
-        <Route path="/home" element={<Home onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
-        <Route path="/collections" element={<Collections onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
-        <Route path="/history" element={<History onOpenManga={handleHistoryMangaOpen} />} />
-        <Route path="/library" element={<Library onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/more" element={<Settings />} />
+        <Route path="/" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Home onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />
+          </Layout>
+        } />
+        <Route path="/home" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Home onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />
+          </Layout>
+        } />
+        <Route path="/collections" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Collections onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />
+          </Layout>
+        } />
+        <Route path="/history" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <History onOpenManga={handleHistoryMangaOpen} />
+          </Layout>
+        } />
+        <Route path="/library" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Library onMangaSelect={handleMangaSelect} onMangaDetails={handleMangaDetails} />
+          </Layout>
+        } />
+        <Route path="/settings" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Settings />
+          </Layout>
+        } />
+        <Route path="/more" element={
+          <Layout
+            currentPage={getCurrentPage()}
+            setCurrentPage={(page) => navigate(`/${page}`)}
+            onMangaSelect={(manga) => {
+              setDetailsManga(manga);
+              setActiveMangaId(null);
+              localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                data: manga,
+                timestamp: Date.now()
+              }));
+              navigate(`/details/${encodeURIComponent(manga.id)}`);
+            }}
+          >
+            <Settings />
+          </Layout>
+        } />
         <Route path="/login" element={
           <Layout
             currentPage={getCurrentPage()}
@@ -169,26 +277,54 @@ function AppContent() {
             <Profile />
           </Layout>
         } />
-        <Route 
-          path="/details/:mangaId" 
+        <Route
+          path="/details/:mangaId"
           element={
-            <Details 
-              onBack={() => navigate(-1)}
-              onChapterRead={handleChapterRead}
-            />
-          } 
+            <Layout
+              currentPage={getCurrentPage()}
+              setCurrentPage={(page) => navigate(`/${page}`)}
+              onMangaSelect={(manga) => {
+                setDetailsManga(manga);
+                setActiveMangaId(null);
+                localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                  data: manga,
+                  timestamp: Date.now()
+                }));
+                navigate(`/details/${encodeURIComponent(manga.id)}`);
+              }}
+            >
+              <Details
+                onBack={() => navigate(-1)}
+                onChapterRead={handleChapterRead}
+              />
+            </Layout>
+          }
         />
-        <Route 
-          path="/reader/:chapterId" 
+        <Route
+          path="/reader/:chapterId"
           element={
-            <Reader 
-              onNavigate={handleChapterNavigation}
-              onExit={handleReaderExit} 
-            />
-          } 
+            <Layout
+              currentPage={getCurrentPage()}
+              setCurrentPage={(page) => navigate(`/${page}`)}
+              onMangaSelect={(manga) => {
+                setDetailsManga(manga);
+                setActiveMangaId(null);
+                localStorage.setItem(`cached_manga_${manga.id}`, JSON.stringify({
+                  data: manga,
+                  timestamp: Date.now()
+                }));
+                navigate(`/details/${encodeURIComponent(manga.id)}`);
+              }}
+            >
+              <Reader
+                onNavigate={handleChapterNavigation}
+                onExit={handleReaderExit}
+              />
+            </Layout>
+          }
         />
       </Routes>
-    </Layout>
+    </Suspense>
   );
 }
 

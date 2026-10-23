@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Loader2, ArrowUp, X, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ArrowUp, X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { API_ENDPOINTS, fetchWithRetry } from '../config/api';
 
 const LazyImage = ({ src, alt, className, style, priority = false }) => {
@@ -22,7 +22,7 @@ const LazyImage = ({ src, alt, className, style, priority = false }) => {
           observer.disconnect();
         }
       },
-      { threshold: 0.01, rootMargin: '2000px' } // Much larger margin for ultra-early loading
+      { threshold: 0.01, rootMargin: '500px' } // Reduced from 2000px for better performance
     );
     if (imgRef.current) observer.observe(imgRef.current);
     return () => observer.disconnect();
@@ -38,7 +38,7 @@ const LazyImage = ({ src, alt, className, style, priority = false }) => {
           style={style}
           onLoad={() => setIsLoaded(true)}
           onError={() => setError(true)}
-          loading="eager" // Load immediately when in view
+          loading={priority ? "eager" : "lazy"} // Use native lazy loading for non-priority images
           decoding="async"
         />
       )}
@@ -58,17 +58,20 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [activeChapterId, setActiveChapterId] = useState(null);
   const [failedIds, setFailedIds] = useState(() => new Set());
-  const [showControls, setShowControls] = useState(false); // Start with controls hidden
-  const [showInfo, setShowInfo] = useState(true); // Show chapter/page info by default
+  const [showNavBars, setShowNavBars] = useState(false); // Show/hide nav bars on tap
   const [hasReachedEnd, setHasReachedEnd] = useState(false);
   const [currentPage, setCurrentPage] = useState({ chapterId: null, pageIndex: 0 });
   const [visiblePage, setVisiblePage] = useState({ chapterId: null, pageIndex: 0 }); // Real-time visible page
+  const [isDraggingSlider, setIsDraggingSlider] = useState(false);
+  const [showChapterDropdown, setShowChapterDropdown] = useState(false); // Chapter dropdown visibility
+  const [allChapters, setAllChapters] = useState([]); // All available chapters for dropdown
 
   const scrollContainerRef = useRef(null);
   const observerTarget = useRef(null);
   const abortControllerRef = useRef(null);
   const previousChapterIdRef = useRef(null);
   const hasStartedFetchRef = useRef(false);
+  const dropdownRef = useRef(null);
 
   // Use URL chapter ID if not provided via props
   const chapterId = propChapterId || urlChapterId;
@@ -88,18 +91,15 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     try {
       const raw = localStorage.getItem(getChapterCacheKey(id));
       if (!raw) {
-        console.log('🔍 No cache found for:', id);
         return null;
       }
       const parsed = JSON.parse(raw);
       if (Date.now() - parsed.timestamp > CHAPTER_CACHE_TTL_MS) {
-        console.log('🔍 Cache expired for:', id);
         return null;
       }
-      console.log('🔍 Cache valid for:', id, 'pages:', parsed.pages?.length);
       return { pages: parsed.pages, chapterNum: parsed.chapterNum };
     } catch (err) {
-      console.error('🔍 Cache read error:', err);
+      console.error('Cache read error:', err);
       return null;
     }
   };
@@ -107,13 +107,12 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   const writeChapterCache = (id, payload) => {
     if (!id || !payload?.pages) return;
     try {
-      console.log('🔍 Writing cache for:', id, 'pages:', payload.pages.length);
       localStorage.setItem(
         getChapterCacheKey(id),
         JSON.stringify({ pages: payload.pages, chapterNum: payload.chapterNum, timestamp: Date.now() })
       );
     } catch (err) {
-      console.error('🔍 Cache write error:', err);
+      console.error('Cache write error:', err);
     }
   };
 
@@ -121,6 +120,31 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     const match = id.match(/chapter\/(\d+)/i);
     return match ? parseInt(match[1]) : 1;
   };
+
+  // Fetch all chapters for the manga (for dropdown)
+  const fetchAllChapters = useCallback(async () => {
+    if (!mangaId || allChapters.length > 0) return; // Already fetched
+
+    try {
+      const response = await fetchWithRetry(API_ENDPOINTS.MANGA(mangaId));
+      const data = await response.json();
+
+      if (data.chapters && Array.isArray(data.chapters)) {
+        // Sort chapters by number (descending for dropdown)
+        const sortedChapters = data.chapters
+          .map(ch => ({
+            id: ch.id,
+            number: ch.number || getChapterNumber(ch.id),
+            title: ch.title || `Chapter ${ch.number || getChapterNumber(ch.id)}`
+          }))
+          .sort((a, b) => b.number - a.number); // Descending order
+
+        setAllChapters(sortedChapters);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all chapters:', err);
+    }
+  }, [mangaId, allChapters.length]);
 
   // Save current page position
   const savePagePosition = useCallback((chapterId, pageIndex) => {
@@ -151,28 +175,51 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   }, []);
 
   // Scroll to specific page
-  const scrollToPage = useCallback((chapterId, pageIndex) => {
+  const scrollToPage = useCallback((chapterId, pageIndex, smooth = true) => {
     const pageElement = document.getElementById(`page-${chapterId}-${pageIndex}`);
     if (pageElement) {
-      pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (smooth) {
+        pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // Instant jump - set scroll position directly
+        const container = scrollContainerRef.current;
+        if (container) {
+          // Temporarily disable smooth scrolling for instant jump
+          container.style.scrollBehavior = 'auto';
+          const rect = pageElement.getBoundingClientRect();
+          const containerRect = container.getBoundingClientRect();
+          const scrollTop = container.scrollTop + rect.top - containerRect.top;
+          container.scrollTop = scrollTop;
+          // Re-enable smooth scrolling after jump
+          setTimeout(() => {
+            container.style.scrollBehavior = '';
+          }, 0);
+        }
+      }
       savePagePosition(chapterId, pageIndex);
     }
   }, [savePagePosition]);
 
   // OPTIMIZED: fetchChapter with better error handling and performance
-  const fetchChapter = useCallback(async (id, isPreload = false) => {
-    console.log(`Fetching chapter ${id} with preload: ${isPreload}`);
-    if (!id || loadedIds.has(id) || failedIds.has(id)) {
-      console.log(`Skipped fetch for ${id} - already loaded/failed`);
+  const fetchChapter = useCallback(async (id, isPreload = false, insertAtStart = false) => {
+    console.log(`Fetching chapter ${id} with preload: ${isPreload}, insertAtStart: ${insertAtStart}`);
+    if (!id || loadedIds.has(id) || failedIds.has(id) || hasReachedEnd) {
+      console.log(`Skipped fetch for ${id} - already loaded/failed or reached end`);
       return;
     }
 
     const cached = readChapterCache(id);
-    if (cached?.pages?.length) {
+    const MIN_PAGES_THRESHOLD = 5;
+    if (cached?.pages?.length >= MIN_PAGES_THRESHOLD) {
       const chapterNum = cached.chapterNum || getChapterNumber(id);
       setChapters((prev) => {
-        const newChapters = prev.some((ch) => ch.id === id) ? prev : [...prev, { id, pages: cached.pages, chapterNum }];
-        return newChapters;
+        if (prev.some((ch) => ch.id === id)) return prev;
+        const newChapter = { id, pages: cached.pages, chapterNum };
+        if (insertAtStart) {
+          // Insert at the beginning for previous chapters
+          return [newChapter, ...prev];
+        }
+        return [...prev, newChapter];
       });
       setLoadedIds((prev) => new Set(prev).add(id));
 
@@ -182,10 +229,19 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
         if (!loadedIds.has(nextId)) {
           console.log(`Pre-fetching next chapter from cache load: ${nextChapterNum}`);
-          fetchChapter(nextId, true);
+          fetchChapter(nextId, true, false);
         }
       }
 
+      return;
+    } else if (cached) {
+      // Cached but has insufficient pages - mark as failed and reached end
+      console.log(`Cached chapter ${id} has ${cached.pages?.length || 0} pages (below threshold ${MIN_PAGES_THRESHOLD}), marking as end`);
+      setHasReachedEnd(true);
+      setFailedIds((prev) => new Set(prev).add(id));
+      // Remove from cache
+      const cacheKey = getChapterCacheKey(id);
+      localStorage.removeItem(cacheKey);
       return;
     }
 
@@ -196,40 +252,51 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       const apiUrl = API_ENDPOINTS.CHAPTER(id);
       console.log('🔍 Fetching chapter:', apiUrl);
 
-      const response = await fetchWithRetry(apiUrl, { signal: abortControllerRef.current?.signal });
+      const response = await fetchWithRetry(apiUrl, { 
+        signal: abortControllerRef.current?.signal,
+        noRetry: true // Disable retries to avoid duplicate fetches on connection errors
+      });
       console.log('🔍 Response status:', response.status);
       
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
-      // console.log('🔍 Chapter data received:', { 
-      //   pages: data.pages?.length, 
-      //   firstPageUrl: data.pages?.[0] 
-      // });
-      
-      if (data.pages?.length > 0) {
+      console.log('🔍 Chapter data received:', {
+        id,
+        pages: data.pages?.length,
+        firstPageUrl: data.pages?.[0]
+      });
+
+      // Filter out false positives - real chapters should have at least 5 pages
+      const MIN_PAGES_THRESHOLD = 5;
+      if (data.pages?.length >= MIN_PAGES_THRESHOLD) {
         const chapterNum = getChapterNumber(id);
-        
-        // Progressive loading: first 6 pages immediately, then the rest
-        const firstPages = data.pages.slice(0, 6);
-        const remainingPages = data.pages.slice(6);
-        
+
+        // Progressive loading: first 5 pages immediately, then the rest
+        const firstPages = data.pages.slice(0, 5);
+        const remainingPages = data.pages.slice(5);
+
         // Check if chapter already exists to prevent duplicates
         const chapterExists = chapters.some(ch => ch.id === id);
-        
+
         if (!chapterExists) {
-          // Load first 6 pages immediately for fast display
+          // Load first 5 pages immediately for fast display
           setChapters((prev) => {
             // Double-check within the functional update to prevent race conditions
             if (prev.some(ch => ch.id === id)) {
               return prev; // Don't add if already exists
             }
-            return [...prev, { id, pages: firstPages, chapterNum }];
+            const newChapter = { id, pages: firstPages, chapterNum };
+            if (insertAtStart) {
+              // Insert at the beginning for previous chapters
+              return [newChapter, ...prev];
+            }
+            return [...prev, newChapter];
           });
           setLoadedIds((prev) => new Set(prev).add(id));
           writeChapterCache(id, { pages: data.pages, chapterNum });
         }
-        
+
         // Load remaining pages after a short delay (non-blocking)
         if (remainingPages.length > 0) {
           setTimeout(() => {
@@ -245,9 +312,9 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                 : ch
             ));
             writeChapterCache(id, { pages: data.pages, chapterNum });
-          }, 300); // 300ms delay to not block UI
+          }, 200); // Reduced to 200ms for faster progressive loading
         }
-        
+
         // Reset hasReachedEnd when we successfully load a chapter
         if (!isPreload) {
           setHasReachedEnd(false);
@@ -257,20 +324,28 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         // Pre-fetch 1 chapter ahead for seamless reading
         // Triggers for every chapter to always keep 1 ahead ready
         if (!isPreload) {
-          // Pre-fetch next 1 chapter
-          const nextChapterNum = chapterNum + 1;
-          const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
+          // Pre-fetch next 1 chapter with delay to not block current rendering
+          setTimeout(() => {
+            const nextChapterNum = chapterNum + 1;
+            const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
 
-          if (!loadedIds.has(nextId)) {
-            console.log(`Pre-fetching next chapter: ${nextChapterNum}`);
-            fetchChapter(nextId, true);
-          }
+            if (!loadedIds.has(nextId)) {
+              fetchChapter(nextId, true, false);
+            }
+          }, 1000); // 1 second delay to prioritize current chapter
+        } else {
+          // If we're preloading and got here, it means the chapter exists
+          // Clear hasReachedEnd if we successfully loaded a chapter during preload
+          setHasReachedEnd(false);
         }
       } else {
-        // Handle empty response - only mark as end if this is a prefetch attempt
-        if (isPreload) {
-          setHasReachedEnd(true);
-        }
+        // Handle empty response - mark as end and failed
+        console.log(`Chapter ${id} has no pages, marking as end`);
+        setHasReachedEnd(true);
+        setFailedIds((prev) => new Set(prev).add(id));
+        // Don't cache empty chapters so they won't be tried again from cache
+        const cacheKey = getChapterCacheKey(id);
+        localStorage.removeItem(cacheKey);
       }
     } catch (err) {
       // Don't log error if it's just an abort (normal during navigation/strict mode)
@@ -280,12 +355,14 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       }
 
       console.error("Fetch failed:", err);
-      // Check if this is a 404, indicating no more chapters - only mark as end for prefetch attempts
-      if (err.message.includes('Status: 404') && isPreload) {
+      // Check if this is a 404, indicating no more chapters
+      if (err.message.includes('Status: 404')) {
         setHasReachedEnd(true);
+        // Mark as failed so we don't try to fetch it again
+        setFailedIds((prev) => new Set(prev).add(id));
       }
-      // Don't immediately mark as failed - allow retries
-      if (!isPreload) {
+      // Don't immediately mark as failed for other errors - allow retries
+      if (!isPreload && !err.message.includes('Status: 404')) {
         setFailedIds((prev) => new Set(prev).add(id));
       }
     } finally {
@@ -330,6 +407,46 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       fetchChapter(chapterId);
     }
   }, [chapterId, chapters.length]);
+
+  // Fetch all chapters for dropdown
+  useEffect(() => {
+    fetchAllChapters();
+  }, [fetchAllChapters]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showChapterDropdown && !event.target.closest('.chapter-dropdown-container')) {
+        setShowChapterDropdown(false);
+      }
+    };
+
+    if (showChapterDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showChapterDropdown]);
+
+  // Scroll dropdown to show current chapter at bottom
+  useEffect(() => {
+    if (showChapterDropdown && dropdownRef.current) {
+      const currentChapterId = visiblePage.chapterId || activeChapterId;
+      const currentChapterElement = dropdownRef.current.querySelector(`[data-chapter-item="${currentChapterId}"]`);
+      
+      if (currentChapterElement) {
+        // Scroll so the current chapter is at the bottom of the visible area
+        const container = dropdownRef.current;
+        const elementTop = currentChapterElement.offsetTop;
+        const containerHeight = container.clientHeight;
+        const elementHeight = currentChapterElement.clientHeight;
+        
+        container.scrollTop = elementTop - containerHeight + elementHeight + 8; // +8 for padding
+      }
+    }
+  }, [showChapterDropdown, visiblePage.chapterId, activeChapterId]);
 
   // Log chapters state changes for debugging
   useEffect(() => {
@@ -389,7 +506,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && !isDraggingSlider) {
             const pageId = entry.target.getAttribute('data-page-id');
             if (pageId) {
               // Extract chapter ID and page index correctly
@@ -398,9 +515,9 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
               if (lastDashIndex !== -1) {
                 const chapterId = pageId.substring(0, lastDashIndex);
                 const pageIndex = parseInt(pageId.substring(lastDashIndex + 1));
-                
+
                 // console.log('Page tracking:', { pageId, chapterId, pageIndex });
-                
+
                 if (!isNaN(pageIndex)) {
                   savePagePosition(chapterId, pageIndex);
                   // Update active chapter immediately when page changes
@@ -469,46 +586,55 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         }
       });
     };
-  }, [chapters, savePagePosition, scrollContainerRef]);
+  }, [chapters, savePagePosition, scrollContainerRef, isDraggingSlider]);
 
-  // Add scroll listener as backup for immediate position updates
+  // Add scroll listener as backup for immediate position updates (with throttling)
   useEffect(() => {
+    let ticking = false;
+
     const handleScroll = () => {
-      // Find which page is currently most visible
-      const pages = document.querySelectorAll('[data-page-id]');
-      let bestPage = null;
-      let maxIntersection = 0;
-      
-      pages.forEach((page) => {
-        const rect = page.getBoundingClientRect();
-        const containerRect = scrollContainerRef.current?.getBoundingClientRect();
-        
-        if (containerRect) {
-          const visibleHeight = Math.min(rect.bottom, containerRect.bottom) - Math.max(rect.top, containerRect.top);
-          const intersectionRatio = visibleHeight / rect.height;
-          
-          if (intersectionRatio > maxIntersection) {
-            maxIntersection = intersectionRatio;
-            bestPage = page;
+      if (ticking || isDraggingSlider) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        // Find which page is currently most visible
+        const pages = document.querySelectorAll('[data-page-id]');
+        let bestPage = null;
+        let maxIntersection = 0;
+
+        pages.forEach((page) => {
+          const rect = page.getBoundingClientRect();
+          const containerRect = scrollContainerRef.current?.getBoundingClientRect();
+
+          if (containerRect) {
+            const visibleHeight = Math.min(rect.bottom, containerRect.bottom) - Math.max(rect.top, containerRect.top);
+            const intersectionRatio = visibleHeight / rect.height;
+
+            if (intersectionRatio > maxIntersection) {
+              maxIntersection = intersectionRatio;
+              bestPage = page;
+            }
           }
-        }
-      });
-      
-      if (bestPage) {
-        const pageId = bestPage.getAttribute('data-page-id');
-        if (pageId) {
-          const lastDashIndex = pageId.lastIndexOf('-');
-          if (lastDashIndex !== -1) {
-            const chapterId = pageId.substring(0, lastDashIndex);
-            const pageIndex = parseInt(pageId.substring(lastDashIndex + 1));
-            
-            if (!isNaN(pageIndex)) {
-              setVisiblePage({ chapterId, pageIndex });
-              setActiveChapterId(chapterId);
+        });
+
+        if (bestPage) {
+          const pageId = bestPage.getAttribute('data-page-id');
+          if (pageId) {
+            const lastDashIndex = pageId.lastIndexOf('-');
+            if (lastDashIndex !== -1) {
+              const chapterId = pageId.substring(0, lastDashIndex);
+              const pageIndex = parseInt(pageId.substring(lastDashIndex + 1));
+
+              if (!isNaN(pageIndex)) {
+                setVisiblePage({ chapterId, pageIndex });
+                setActiveChapterId(chapterId);
+              }
             }
           }
         }
-      }
+
+        ticking = false;
+      });
     };
 
     const scrollContainer = scrollContainerRef.current;
@@ -518,7 +644,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         scrollContainer.removeEventListener('scroll', handleScroll, { passive: true });
       };
     }
-  }, [chapters, scrollContainerRef]);
+  }, [chapters, scrollContainerRef, isDraggingSlider]);
 
   const scrollToCurrentChapter = () => {
     if (!activeChapterId) return;
@@ -536,7 +662,95 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     if (onExit) {
       onExit();
     } else {
-      navigate(-1);
+      // Navigate to the manhwa details page instead of going back in history
+      if (mangaId) {
+        navigate(`/manga/${encodeURIComponent(mangaId)}`);
+      } else {
+        // Extract mangaId from chapterId if not available
+        const extractedMangaId = chapterId.replace(/\/chapter\/\d+$/i, '');
+        navigate(`/manga/${encodeURIComponent(extractedMangaId)}`);
+      }
+    }
+  };
+
+  // Handle screen tap to toggle nav bars
+  const handleScreenTap = (e) => {
+    // Don't toggle if clicking on buttons or interactive elements
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) {
+      return;
+    }
+    setShowNavBars(!showNavBars);
+  };
+
+  // Handle page slider change (during drag)
+  const handlePageSliderChange = (e) => {
+    const pageIndex = parseInt(e.target.value);
+    const activeChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+    if (activeChapter) {
+      // Update visible page immediately during drag for UI feedback
+      setVisiblePage({ chapterId: activeChapter.id, pageIndex });
+      // Jump to page instantly during drag (like Mihon does)
+      scrollToPage(activeChapter.id, pageIndex, false);
+    }
+  };
+
+  // Handle slider drag start
+  const handleSliderPointerDown = () => {
+    setIsDraggingSlider(true);
+  };
+
+  // Handle slider drag end
+  const handleSliderPointerUp = () => {
+    setIsDraggingSlider(false);
+  };
+
+  // Navigate to previous chapter
+  const handlePrevChapter = () => {
+    const currentChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+    if (currentChapter) {
+      const currentIndex = chapters.findIndex(ch => ch.id === currentChapter.id);
+      if (currentIndex > 0) {
+        const prevChapter = chapters[currentIndex - 1];
+        handleNavigate(prevChapter.id);
+      } else {
+        // We're on the first loaded chapter, try to fetch the previous one
+        const chapterNum = getChapterNumber(currentChapter.id);
+        const prevChapterNum = chapterNum - 1;
+        if (prevChapterNum > 0) {
+          const prevId = currentChapter.id.replace(/chapter\/\d+/i, `chapter/${prevChapterNum}`);
+          // Fetch the previous chapter and insert at start
+          fetchChapter(prevId, false, true);
+          // Navigate to it after a short delay to allow it to load
+          setTimeout(() => {
+            handleNavigate(prevId);
+          }, 500);
+        }
+      }
+    }
+  };
+
+  // Check if current chapter is the last loaded chapter
+  const isLastChapter = () => {
+    const currentChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+    if (!currentChapter) return false;
+
+    const currentIndex = chapters.findIndex(ch => ch.id === currentChapter.id);
+    const isLastInArray = currentIndex === chapters.length - 1;
+
+    // Disable if it's the last chapter in the array
+    return isLastInArray;
+  };
+
+  // Navigate to next chapter
+  const handleNextChapter = () => {
+    const currentChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+    if (currentChapter) {
+      const currentIndex = chapters.findIndex(ch => ch.id === currentChapter.id);
+      // Only navigate if there's a next chapter
+      if (currentIndex < chapters.length - 1) {
+        const nextChapter = chapters[currentIndex + 1];
+        handleNavigate(nextChapter.id);
+      }
     }
   };
 
@@ -576,9 +790,9 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   };
 
   return (
-    <div 
+    <div
       ref={scrollContainerRef}
-      className="fixed inset-0 bg-[#050505] overflow-y-auto overflow-x-hidden z-[100] scroll-smooth"
+      className="fixed inset-0 bg-[#050505] overflow-y-auto overflow-x-hidden z-[100]"
     >
       {!chapterId ? (
         <div className="flex items-center justify-center h-full">
@@ -589,14 +803,14 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         </div>
       ) : (
         <>
-          <div className="flex flex-col items-center w-full px-0 md:px-4">
+          <div className="flex flex-col items-center w-full px-0 md:px-4" onClick={handleScreenTap}>
             <div className="w-full max-w-[900px] bg-[#050505] shadow-2xl">
               {chapters.map((chapter) => (
                 <div key={`group-${chapter.id}`} className="w-full flex flex-col items-center">
                   <div
                     id={`header-${chapter.id}`}
                     data-chapter-id={chapter.id}
-                    className={`chapter-marker w-full py-16 md:py-24 text-center select-none transition-opacity duration-300 ${showInfo ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className="chapter-marker w-full py-16 md:py-24 text-center select-none transition-opacity duration-300 opacity-100"
                   >
                     <div className="inline-flex items-center space-x-4">
                       <div className="h-px w-6 md:w-12 bg-gray-800" />
@@ -613,10 +827,10 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                       id={`page-${chapter.id}-${index}`}
                       data-page-id={`${chapter.id}-${index}`}
                     >
-                      <LazyImage 
-                        src={url} 
-                        className="w-full" 
-                        style={{ marginBottom: '-1px' }} 
+                      <LazyImage
+                        src={url}
+                        className="w-full"
+                        style={{ marginBottom: '-1px' }}
                         priority={index < 5} // Load first 5 images immediately
                       />
                     </div>
@@ -642,48 +856,176 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
             </div>
           </div>
 
-          <div className="fixed bottom-6 right-6 z-[110] flex items-center gap-3">
-            {/* Position indicator - hideable */}
-            <div className={`bg-gray-900/50 backdrop-blur-md border border-gray-700/30 rounded-lg px-3 py-1.5 text-[11px] font-medium text-gray-200 whitespace-nowrap transition-opacity duration-300 ${showInfo ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              {getCurrentPosition()}
-            </div>
-
-            {/* Peek button - always visible but tiny */}
-            <div className="relative group">
-              <button 
-                onClick={() => setShowControls(!showControls)}
-                className="w-8 h-8 bg-gray-800/40 backdrop-blur-sm rounded-full border border-gray-700/40 flex items-center justify-center opacity-60 hover:opacity-100 transition-all duration-200"
-                aria-label="Toggle controls"
+          {/* Top Navigation Bar */}
+          <div className={`fixed top-0 left-0 right-0 z-[110] bg-black/80 backdrop-blur-md border-b border-gray-800/50 transition-all duration-300 ${showNavBars ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-full pointer-events-none'}`}>
+            <div className="flex items-center justify-between px-4 py-3">
+              <button
+                onClick={handleExit}
+                className="p-2 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors"
+                aria-label="Exit reader"
               >
-                <div className="w-1.5 h-1.5 bg-white/80 rounded-full"></div>
+                <X size={20} />
               </button>
-              
-              {/* Hidden buttons that appear on click and when controls are enabled */}
-              {showControls && (
-                <div className="absolute bottom-10 right-0 flex flex-col gap-3 opacity-100 transition-opacity duration-300 pointer-events-auto">
-                  <button
-                    onClick={() => setShowInfo(!showInfo)}
-                    className="p-3.5 rounded-2xl bg-gray-900/20 backdrop-blur-md border border-gray-700/20 text-white/60 hover:text-white transition-all shadow-2xl active:scale-90 whitespace-nowrap"
-                    aria-label="Toggle info"
-                  >
-                    {showInfo ? <Eye size={20} /> : <EyeOff size={20} />}
-                  </button>
-                  <button
-                    onClick={scrollToCurrentChapter}
-                    className="p-3.5 rounded-2xl bg-gray-900/20 backdrop-blur-md border border-gray-700/20 text-white/60 hover:text-white transition-all shadow-2xl active:scale-90 whitespace-nowrap"
-                    aria-label="Scroll to current chapter"
-                  >
-                    <ArrowUp size={20} />
-                  </button>
-                  <button
-                    onClick={handleExit}
-                    className="p-3.5 rounded-2xl bg-gray-900/20 backdrop-blur-md border border-gray-700/20 text-white/60 hover:text-red-500 transition-all shadow-2xl active:scale-90"
-                    aria-label="Exit reader"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              )}
+              <div className="relative chapter-dropdown-container">
+                <button
+                  onClick={() => setShowChapterDropdown(!showChapterDropdown)}
+                  className="flex items-center gap-2 text-sm font-bold text-white hover:text-blue-400 transition-colors"
+                >
+                  {(() => {
+                    const displayChapterId = visiblePage.chapterId || activeChapterId;
+                    const activeChapter = chapters.find(ch => ch.id === displayChapterId);
+                    if (!activeChapter) return 'Loading...';
+                    const chapterNum = getChapterNumber(activeChapter.id);
+                    return `Chapter ${chapterNum}`;
+                  })()}
+                  <ChevronDown size={16} className={`transition-transform ${showChapterDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Chapter Dropdown */}
+                {showChapterDropdown && (
+                  <div ref={dropdownRef} className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-36 max-h-60 overflow-y-auto bg-[#0a0a0a] border border-gray-800/50 rounded-xl shadow-2xl z-[120] backdrop-blur-xl custom-scrollbar">
+                    <div className="p-1">
+                      {allChapters.length > 0 ? (
+                        allChapters.map((ch) => (
+                          <button
+                            key={ch.id}
+                            data-chapter-item={ch.id}
+                            onClick={() => {
+                              handleNavigate(ch.id);
+                              setShowChapterDropdown(false);
+                            }}
+                            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              ch.id === (visiblePage.chapterId || activeChapterId)
+                                ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30'
+                                : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
+                            }`}
+                          >
+                            Chapter {ch.number}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="text-center text-gray-600 text-sm py-8">
+                          Loading chapters...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="w-10" /> {/* Spacer for centering */}
+            </div>
+          </div>
+
+          <style>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 4px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: #374151;
+              border-radius: 4px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: #4b5563;
+            }
+          `}</style>
+
+          {/* Bottom Navigation Bar */}
+          <div className={`fixed bottom-0 left-0 right-0 z-[110] bg-black/80 backdrop-blur-md border-t border-gray-800/50 transition-all duration-300 ${showNavBars ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}>
+            <div className="flex items-center justify-center gap-4 px-4 py-4">
+              <button
+                onClick={handlePrevChapter}
+                className="p-3 rounded-full bg-gray-800/50 hover:bg-gray-700/50 text-white transition-colors"
+                aria-label="Previous chapter"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <div className="flex-1 max-w-md flex items-center gap-3">
+                <span className="text-sm font-semibold text-gray-300 w-12 text-right">
+                  {(() => {
+                    const displayPageIndex = visiblePage.pageIndex !== null ? visiblePage.pageIndex : (currentPage.pageIndex || 0);
+                    return displayPageIndex + 1;
+                  })()}
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max={(() => {
+                    const activeChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+                    return (activeChapter?.pages.length || 1) - 1;
+                  })()}
+                  value={visiblePage.pageIndex || 0}
+                  onChange={handlePageSliderChange}
+                  onPointerDown={handleSliderPointerDown}
+                  onPointerUp={handleSliderPointerUp}
+                  className="w-full h-1.5 rounded-full appearance-none cursor-pointer slider"
+                  style={{
+                    '--value': `${((visiblePage.pageIndex || 0) / Math.max(1, (chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId))?.pages.length || 1) - 1)) * 100}%`
+                  }}
+                  aria-label="Page slider"
+                />
+                <span className="text-sm font-semibold text-gray-300 w-12">
+                  {(() => {
+                    const activeChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+                    return activeChapter?.pages.length || 1;
+                  })()}
+                </span>
+                <style>{`
+                  .slider {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    background: #1f2937;
+                    border-radius: 8px;
+                    height: 6px;
+                  }
+                  .slider::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    background: #3b82f6;
+                    cursor: pointer;
+                    border: 2px solid #1f2937;
+                    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+                    transition: transform 0.15s ease;
+                  }
+                  .slider::-webkit-slider-thumb:hover {
+                    transform: scale(1.2);
+                  }
+                  .slider::-moz-range-thumb {
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    background: #3b82f6;
+                    cursor: pointer;
+                    border: 2px solid #1f2937;
+                    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+                    transition: transform 0.15s ease;
+                  }
+                  .slider::-moz-range-thumb:hover {
+                    transform: scale(1.2);
+                  }
+                  .slider::-webkit-slider-runnable-track {
+                    background: linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--value, 0%), #1f2937 var(--value, 0%), #1f2937 100%);
+                    border-radius: 8px;
+                  }
+                  .slider::-moz-range-track {
+                    background: #1f2937;
+                    border-radius: 8px;
+                  }
+                `}</style>
+              </div>
+              <button
+                onClick={handleNextChapter}
+                disabled={isLastChapter()}
+                className={`p-3 rounded-full transition-colors ${isLastChapter() ? 'bg-gray-800/30 text-gray-600 cursor-not-allowed' : 'bg-gray-800/50 hover:bg-gray-700/50 text-white'}`}
+                aria-label="Next chapter"
+              >
+                <ChevronRight size={20} />
+              </button>
             </div>
           </div>
         </>

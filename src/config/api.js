@@ -1,7 +1,7 @@
 // Central API configuration
 // const API_BASE_URL = process.env.REACT_APP_API_URL;
 // const API_BASE_URL = 'http://127.0.0.1:8000/';
-const API_BASE_URL = 'http://10.7.6.205:8000/';
+const API_BASE_URL = 'http://10.7.5.6:8000/';
 
 
 // Export base URL and helper functions
@@ -16,7 +16,10 @@ export const createApiUrl = (endpoint) => {
 
 // Enhanced fetch with retry logic and error handling
 export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  // If noRetry is specified, skip retries (useful for chapter pages to avoid duplicate fetches)
+  const shouldRetry = options.noRetry !== true;
+
+  for (let attempt = 1; attempt <= (shouldRetry ? maxRetries : 1); attempt++) {
     try {
       // Use external signal if provided, otherwise create internal controller
       const controller = options.signal ? null : new AbortController();
@@ -47,7 +50,7 @@ export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
 
       console.error(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
 
-      if (attempt === maxRetries) {
+      if (attempt === maxRetries || !shouldRetry) {
         throw error;
       }
 
@@ -62,6 +65,7 @@ export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
 export const API_ENDPOINTS = {
   // Manga endpoints
   MANGA: (id) => createApiUrl(`api/kaynscan/manga/?id=${encodeURIComponent(id)}`),
+  LATEST_CHAPTER: (id) => createApiUrl(`api/kaynscan/latest-chapter/?id=${encodeURIComponent(id)}`),
   CHAPTER: (id) => createApiUrl(`api/kaynscan/chapter/${encodeURIComponent(id)}/`),
   SEARCH: (query) => createApiUrl(`api/kaynscan/search/?q=${encodeURIComponent(query)}`),
   BROWSE_ALL: createApiUrl('api/kaynscan/browse-all/'),

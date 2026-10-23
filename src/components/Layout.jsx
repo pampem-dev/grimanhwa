@@ -35,36 +35,30 @@ const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
     setShowSearchResults(true);
 
     try {
-      // Always use backend API from environment
-      const baseUrl = API_ENDPOINTS.SEARCH('');
-      
-      const searchPromises = [
-        fetch(API_ENDPOINTS.SEARCH(query)),
-        fetch(API_ENDPOINTS.SEARCH(query.charAt(0))),
-        fetch(API_ENDPOINTS.SEARCH('a'))
-      ];
+      // Optimized: Single API call instead of 3
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const results = await Promise.allSettled(searchPromises);
-      const allManga = [];
-      
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.ok) {
-          try {
-            const jsonData = await result.value.json();
-            const mangaList = getMangaList(jsonData);
-            allManga.push(...mangaList);
-          } catch (jsonError) {
-            console.warn('Failed to parse JSON response:', jsonError);
-          }
-        }
+      const response = await fetch(API_ENDPOINTS.SEARCH(query), {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error('Search failed');
       }
 
-      const filteredManga = allManga.filter(item => {
+      const jsonData = await response.json();
+      const mangaList = getMangaList(jsonData);
+
+      // Filter by query
+      const filteredManga = mangaList.filter(item => {
         const cleanedItemTitle = cleanTitle(item.title);
         const searchLower = query.toLowerCase();
         return cleanedItemTitle.toLowerCase().includes(searchLower);
       });
 
+      // Remove duplicates
       const seenTitles = new Set();
       const uniqueManga = filteredManga.filter(item => {
         const cleanedItemTitle = cleanTitle(item.title);
@@ -74,13 +68,7 @@ const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
         seenTitles.add(cleanedItemTitle);
         return true;
       });
-      
-      console.log('Search results:', uniqueManga.slice(0, 5).map(m => ({
-        title: m.title,
-        cover: m.cover_url || m.cover,
-        hasCover: !!(m.cover_url || m.cover)
-      })));
-      
+
       setSearchResults(uniqueManga.slice(0, 5));
     } catch (err) {
       console.error("Search error:", err);
