@@ -1,32 +1,21 @@
-# Grimanhwa
+Grimanhwa
 
-A modern manhwa reader with a beautiful dark interface, fast loading, and smooth reading experience.
+Grimanhwa is a web-based manhwa reader for browsing series and reading chapters in one place. It features a dark UI, search, bookmarks, and a mobile-friendly reading experience.
 
-## ✨ Features
+Website: https://grimanhwa.online/
 
-- **📚 Extensive Library** - Browse hundreds of manhwa with instant search
-- **🎨 Beautiful Dark UI** - Modern design that's easy on the eyes
-- **⚡ Fast Loading** - Chapters load instantly with smart caching
-- **📖 Smooth Reading** - Swipe to navigate, continuous scrolling
-- **💾 Save Favorites** - Build your personal manhwa library
-- **🔍 Smart Search** - Find any manhwa instantly
-- **🌙 Dark Theme** - Perfect for late-night reading sessions
-- **📱 Mobile Friendly** - Works great on your phone and tablet
+Features
+Browse and search manhwa
+Read chapters with continuous scrolling
+Swipe to navigate between chapters
+Bookmark series for later
+Dark theme
+Responsive layout for mobile and desktop
+Caching for faster chapter loading
+Data Source
 
-## 📱 Requirements
+Manhwa data is sourced from AsuraScans. Grimanhwa is an independent project and is not affiliated with AsuraScans.
 
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Internet connection
-- No installation required!
+Usage
 
-## 🔗 Links
-
-- **Live Site**: https://grimanhwa.vercel.app/
-
-## 📄 License
-
-This project is open source and free to use.
-
----
-
-Enjoy reading! 📖
+Visit grimanhwa.online to start reading. No installation required.
