@@ -1,7 +1,7 @@
 // Central API configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL;
+// const API_BASE_URL = process.env.REACT_APP_API_URL;
 // const API_BASE_URL = 'http://127.0.0.1:8000/';
-// const API_BASE_URL = 'http://10.7.6.205:8000/';
+const API_BASE_URL = 'http://10.7.5.3:8000/';
 
 
 // Export base URL and helper functions
@@ -48,7 +48,6 @@ export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
         throw error;
       }
 
-      console.error(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
 
       if (attempt === maxRetries || !shouldRetry) {
         throw error;
@@ -69,7 +68,8 @@ export const API_ENDPOINTS = {
   CHAPTER: (id) => createApiUrl(`api/kaynscan/chapter/${encodeURIComponent(id)}/`),
   SEARCH: (query) => createApiUrl(`api/kaynscan/search/?q=${encodeURIComponent(query)}`),
   BROWSE_ALL: createApiUrl('api/kaynscan/browse-all/'),
-  
+  USER_COUNT: createApiUrl('api/user-count/'),
+
   // Cover image helper
   COVER_URL: (path) => {
     if (path.startsWith('/')) {

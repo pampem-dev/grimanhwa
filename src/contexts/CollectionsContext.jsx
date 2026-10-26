@@ -37,7 +37,6 @@ export const CollectionsProvider = ({ children }) => {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (err) {
-      console.error('Failed to set persistent cache:', err);
     }
   };
 
@@ -83,7 +82,6 @@ export const CollectionsProvider = ({ children }) => {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          console.error(`Failed to fetch page ${page}: ${response.status}`);
           continue;
         }
 
@@ -114,9 +112,7 @@ export const CollectionsProvider = ({ children }) => {
         await new Promise(resolve => setTimeout(resolve, 200));
       } catch (error) {
         if (error.name === 'AbortError') {
-          console.warn(`Page ${page} request timed out after 15s`);
         } else {
-          console.error(`Error loading page ${page}:`, error);
         }
       }
     }
@@ -134,7 +130,6 @@ export const CollectionsProvider = ({ children }) => {
       // Check cache first
       const cached = apiCache.current.get(cacheKey) || getPersistentCache(cacheKey);
       if (cached && !forceRefresh) {
-        console.log('Using cached collections for instant display');
         setAllManga(cached.allManga);
         setLoading(false);
 
@@ -149,7 +144,6 @@ export const CollectionsProvider = ({ children }) => {
 
       // Show cached data while fetching fresh data
       if (cached && forceRefresh) {
-        console.log('Showing cached collections while updating...');
         setAllManga(cached.allManga);
       }
 
@@ -193,18 +187,14 @@ export const CollectionsProvider = ({ children }) => {
         setPersistentCache(cacheKey, cacheData);
 
         // Continue loading more pages in background
-        console.log(`Starting background loading for pages ${startPage + 1}-${maxPages}...`);
         setBackgroundLoading(true);
         loadMorePagesRef.current(startPage + 1, maxPages, allMangaData, cacheKey);
       } else {
-        console.error('Failed to fetch collections:', response.status);
         setLoading(false);
       }
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.warn('Collections fetch timed out after 15s');
       } else {
-        console.error('Error fetching collections:', error);
       }
       setLoading(false);
     }
@@ -236,7 +226,6 @@ export const CollectionsProvider = ({ children }) => {
               return { mangaId: manga.id, info };
             }
           } catch (error) {
-            console.error(`Error fetching details for ${manga.id}:`, error);
           }
           return { mangaId: manga.id, info: null };
         });

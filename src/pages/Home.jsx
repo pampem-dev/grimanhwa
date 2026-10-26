@@ -41,7 +41,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         }
       }
     } catch (err) {
-      console.warn('Failed to read persistent cache:', err);
     }
     return null;
   };
@@ -180,7 +179,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         }
       }
     } catch (err) {
-      console.error(`Failed to fetch latest chapter for ${mangaId}:`, err);
     }
     return null;
   };
@@ -265,7 +263,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       } catch (error) {
-        console.error('Error fetching chapter batch:', error);
       }
     }
   }, [fetchLatestChapter]);
@@ -337,7 +334,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 200ms to 100ms
         }
       } catch (error) {
-        console.error('Error fetching chapter batch:', error);
       }
     }
   }, [fetchLatestChapter]);
@@ -365,7 +361,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     // Always show cached data immediately if available (even during refresh)
     const persistentCache = getPersistentCache(cacheKey);
     if (persistentCache) {
-      console.log('Using cached data');
       const { allManga, featured, trending, recent, topRated } = persistentCache;
 
       // Filter out chapter-specific entries from cached data
@@ -471,7 +466,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         const seenIds = new Set();
         const uniqueManga = mangaOnly.filter(item => {
           if (item.id && seenIds.has(item.id)) {
-            console.log('Duplicate by ID:', item.id, item.title);
             return false;
           }
           if (item.id) {
@@ -480,7 +474,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           return true;
         });
 
-        console.log('Original count:', allManga.length, 'After filtering chapters:', mangaOnly.length, 'Unique count:', uniqueManga.length);
 
         // Store all manga for pagination
         setAllMangaList(uniqueManga);
@@ -536,11 +529,9 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         setLoadingPopular(false);
         setLoadingTopRated(false);
       } else {
-        console.error('API response not ok:', response.status, response.statusText);
         throw new Error(`API request failed: ${response.status}`);
       }
     } catch (err) {
-      console.error("Home fetch error:", err);
       // If we have cached data, don't show error - just use cached
       if (!persistentCache) {
         setFetchError(err.message);
@@ -568,7 +559,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         }
       });
     } catch (err) {
-      console.error('Error clearing cache:', err);
     }
 
     setLatestChapters({});

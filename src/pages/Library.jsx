@@ -34,7 +34,6 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     try {
       localStorage.setItem('libraryViewMode', viewMode);
     } catch (err) {
-      console.error('Failed to save view mode:', err);
     }
   }, [viewMode]);
 

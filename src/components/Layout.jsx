@@ -23,6 +23,7 @@ const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
   const [isSearching, setIsSearching] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [userCount, setUserCount] = useState(null);
   const searchTimeoutRef = useRef(null);
 
   const performSearch = useCallback(async (query) => {
@@ -71,7 +72,6 @@ const Layout = ({ children, currentPage, setCurrentPage, onMangaSelect }) => {
 
       setSearchResults(uniqueManga.slice(0, 5));
     } catch (err) {
-      console.error("Search error:", err);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -145,10 +145,30 @@ useEffect(() => {
       left: 0,
       behavior: 'instant' // Use 'instant' to prevent the user from seeing the scroll animation
     });
-    
+
     // Also reset the header visibility so it's showing on the new page
     setIsScrolled(false);
   }, [currentPage]);
+
+  // Fetch user count
+  useEffect(() => {
+    const fetchUserCount = async () => {
+      try {
+        const response = await fetch(API_ENDPOINTS.USER_COUNT);
+        if (response.ok) {
+          const data = await response.json();
+          setUserCount(data.count || data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user count:', err);
+      }
+    };
+
+    fetchUserCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchUserCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-[#050505] text-white' : 'bg-white text-gray-900'}`}>
@@ -159,10 +179,10 @@ useEffect(() => {
             <div className={`max-w-[1600px] mx-auto px-4 sm:px-10 ${isScrolled ? 'py-2' : 'py-4'}`}>
               {/* MOBILE: Updated UI */}
               <div className="sm:hidden flex flex-col gap-4">
-                <div className="flex justify-center">
-                  <img 
+                <div className="flex flex-col items-center gap-1">
+                  <img
                     src={darkMode ? "/grimanhwa.png" : "/grimanhwablack.png"}
-                    alt="Grimanhwa" 
+                    alt="Grimanhwa"
                     className="h-10 w-auto"
                   />
                 </div>
@@ -177,9 +197,9 @@ useEffect(() => {
               {/* DESKTOP: Updated UI */}
               <div className="hidden sm:flex items-center justify-between w-full gap-8">
                 <div className="flex items-center gap-6">
-                  <img 
+                  <img
                     src={darkMode ? "/grimanhwa.png" : "/grimanhwablack.png"}
-                    alt="Grimanhwa" 
+                    alt="Grimanhwa"
                     className="h-10 w-auto"
                   />
                   <div className="flex items-center bg-white/[0.03] border border-white/5 p-1 rounded-2xl">
@@ -198,7 +218,7 @@ useEffect(() => {
         <main className="flex-1"> 
           {children}
         </main>
-        {(currentPage === 'home' || currentPage === 'history' || currentPage === 'collections' || currentPage === 'library' || currentPage === 'settings') && <Footer />}
+        {(currentPage === 'home' || currentPage === 'history' || currentPage === 'collections' || currentPage === 'library' || currentPage === 'settings') && <Footer userCount={userCount} />}
       </div>
     </div>
   );

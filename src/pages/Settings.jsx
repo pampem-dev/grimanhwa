@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {Moon, Sun, Download, Trash2, Shield, ChevronRight, Info, ExternalLink, User, RefreshCw, Database } from 'lucide-react';
+import {Moon, Sun, Download, Trash2, Shield, ChevronRight, Info, ExternalLink, User, RefreshCw, Database, ArrowLeft } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config/api';
@@ -14,7 +14,7 @@ const Settings = () => {
   const [fontSize, setFontSize] = useState('medium'); // small, medium, large
   const [language, setLanguage] = useState('english');
   const [showClearDataModal, setShowClearDataModal] = useState(false);
-  const [showClearCacheModal, setShowClearCacheModal] = useState(false);
+  // const [showClearCacheModal, setShowClearCacheModal] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [user, setUser] = useState(null);
@@ -66,29 +66,29 @@ const Settings = () => {
     localStorage.setItem('appSettings', JSON.stringify(settings));
   }, [autoDownload, notifications, autoPlay, readingMode, fontSize, language]);
 
-  const handleClearCache = () => {
-    setShowClearCacheModal(true);
-  };
+  // const handleClearCache = () => {
+  //   setShowClearCacheModal(true);
+  // };
 
-  const confirmClearCache = () => {
-    // Clear all manga cache entries
-    let clearedCount = 0;
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('mangaCache_') || key.startsWith('collectionsCache_') || key.startsWith('readerCache_') || key.startsWith('detailsCache_')) {
-        localStorage.removeItem(key);
-        clearedCount++;
-      }
-    });
+  // const confirmClearCache = () => {
+  //   // Clear all manga cache entries
+  //   let clearedCount = 0;
+  //   Object.keys(localStorage).forEach(key => {
+  //     if (key.startsWith('mangaCache_') || key.startsWith('collectionsCache_') || key.startsWith('readerCache_') || key.startsWith('detailsCache_')) {
+  //       localStorage.removeItem(key);
+  //       clearedCount++;
+  //     }
+  //   });
 
-    // Also clear any old cache format
-    if (localStorage.getItem('mangaCache')) {
-      localStorage.removeItem('mangaCache');
-      clearedCount++;
-    }
+  //   // Also clear any old cache format
+  //   if (localStorage.getItem('mangaCache')) {
+  //     localStorage.removeItem('mangaCache');
+  //     clearedCount++;
+  //   }
 
-    setShowClearCacheModal(false);
-    window.alert(`Cache cleared successfully! Removed ${clearedCount} cached items.`);
-  };
+  //   setShowClearCacheModal(false);
+  //   window.alert(`Cache cleared successfully! Removed ${clearedCount} cached items.`);
+  // };
 
   const handleClearAllData = () => {
     setShowClearDataModal(true);
@@ -143,7 +143,6 @@ const Settings = () => {
               };
             }
           } catch (error) {
-            console.error('Failed to fetch manga details:', error);
           }
         }
       }
@@ -435,10 +434,10 @@ const Settings = () => {
 
         {/* Downloads Section */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          {/* <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
             <Download size={20} className="text-gray-400" />
             Cache
-          </h2>
+          </h2> */}
           <div className="space-y-4">
             {/* Auto Download */}
             {/* <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
@@ -458,8 +457,8 @@ const Settings = () => {
               </button>
             </div> */}
 
-            {/* Clear Cache */}
-            <button
+            {/* Clear Cache - DEV ONLY */}
+            {/* <button
               onClick={handleClearCache}
               className={`w-full flex items-center justify-between p-4 rounded-xl border hover:bg-white/10 transition-all ${darkMode ? 'bg-white/5 border-white/10' : 'bg-stone-50 border-stone-200'}`}
             >
@@ -471,7 +470,7 @@ const Settings = () => {
                 </div>
               </div>
               <ChevronRight size={18} className="text-gray-400" />
-            </button>
+            </button> */}
           </div>
         </section>
 
@@ -555,9 +554,12 @@ const Settings = () => {
                   className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
                 >
                   <ExternalLink size={14} />
-                  GitHub
+                  GitHub Repository
                 </a>
-                <button className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors">
+                <button
+                  onClick={() => navigate('/privacy')}
+                  className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+                >
                   <ExternalLink size={14} />
                   Privacy Policy
                 </button>
@@ -637,8 +639,8 @@ const Settings = () => {
         </div>
       )}
 
-      {/* Clear Cache Confirmation Modal */}
-      {showClearCacheModal && (
+      {/* Clear Cache Confirmation Modal - DEV ONLY */}
+      {/* {showClearCacheModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className={`${darkMode ? 'bg-[#050505] border-white/10' : 'bg-white border-stone-200'} rounded-2xl p-6 max-w-md w-full shadow-2xl`}>
             <div className="flex items-center gap-3 mb-4">
@@ -667,7 +669,7 @@ const Settings = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Backup Confirmation Modal */}
       {showBackupModal && (

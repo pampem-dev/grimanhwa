@@ -187,7 +187,15 @@ const MangaListItemSkeleton = () => (
 
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const { allManga, loading, backgroundLoading: contextBackgroundLoading, mangaDetails, fetchAllManga, sortManga } = useCollections();
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    // Load current page from localStorage
+    try {
+      const saved = localStorage.getItem('collectionCurrentPage');
+      return saved ? parseInt(saved, 10) : 1;
+    } catch {
+      return 1;
+    }
+  });
   const [itemsPerPage] = useState(20);
   const [viewMode, setViewMode] = useState(() => {
     // Load view mode from localStorage
@@ -198,10 +206,27 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       return 'grid';
     }
   }); // 'grid' or 'list'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('---'); // '---', 'title-asc', 'title-desc'
+  const [searchQuery, setSearchQuery] = useState(() => {
+    // Load search query from localStorage
+    try {
+      const saved = localStorage.getItem('collectionSearchQuery');
+      return saved || '';
+    } catch {
+      return '';
+    }
+  });
+  const [sortBy, setSortBy] = useState(() => {
+    // Load sort preference from localStorage
+    try {
+      const saved = localStorage.getItem('collectionSortBy');
+      return saved || '---';
+    } catch {
+      return '---';
+    }
+  }); // '---', 'title-asc', 'title-desc'
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [estimatedTotalPages, setEstimatedTotalPages] = useState(17); // Start with actual estimate
+  const isInitialMount = useRef(true);
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
   const [library, setLibrary] = useState([]); // Track library manga
@@ -230,9 +255,32 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     try {
       localStorage.setItem('collectionViewMode', viewMode);
     } catch (err) {
-      console.error('Failed to save view mode:', err);
     }
   }, [viewMode]);
+
+  // Save sort preference to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('collectionSortBy', sortBy);
+    } catch (err) {
+    }
+  }, [sortBy]);
+
+  // Save current page to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('collectionCurrentPage', currentPage.toString());
+    } catch (err) {
+    }
+  }, [currentPage]);
+
+  // Save search query to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('collectionSearchQuery', searchQuery);
+    } catch (err) {
+    }
+  }, [searchQuery]);
 
   // Load library from localStorage on mount
   useEffect(() => {
@@ -322,7 +370,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         }
       }
     } catch (err) {
-      console.warn('Failed to read persistent cache:', err);
     }
     return null;
   };
@@ -335,7 +382,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
       };
       localStorage.setItem(`collectionsCache_${key}`, JSON.stringify(cacheData));
     } catch (err) {
-      console.warn('Failed to write persistent cache:', err);
     }
   };
 
@@ -353,7 +399,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     // Use Web Worker for heavy filtering if available
     if (window.Worker && allManga.length > 1000) {
       // For very large datasets, consider using Web Workers
-      console.log('Large dataset detected, consider using Web Workers for filtering');
     }
     
     let filtered = allManga;
@@ -396,6 +441,17 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     return sorted;
   }, [allManga, searchQuery, sortBy]);
 
+
+
+  // Reset to page 1 when search or sort changes (but not on initial load)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    setCurrentPage(1);
+  }, [searchQuery, sortBy]);
+
   // Update pagination when filtered results change
   const actualTotalPages = Math.ceil(filteredAndSortedManga.length / itemsPerPage);
   // Use estimated pages during initial loading or background loading
@@ -404,11 +460,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  // Reset to page 1 when search or sort changes (optimized)
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, sortBy]);
 
   // Remove debounce for faster typing - DISABLED
   // const debouncedSearch = useCallback(
@@ -447,7 +498,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         return info;
       }
     } catch (error) {
-      console.error(`Failed to fetch basic info for ${mangaId}:`, error);
     }
 
     return null;
@@ -475,7 +525,6 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           const info = await fetchBasicMangaInfo(manga.id);
           return { mangaId: manga.id, info, success: true };
         } catch (error) {
-          console.error(`Failed to fetch info for ${manga.id}:`, error);
           return { mangaId: manga.id, info: null, success: false };
         }
       });
@@ -710,7 +759,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
           <div className="text-sm text-gray-400">
             {searchQuery ? 
               `${filteredAndSortedManga.length} found` : 
-              contextBackgroundLoading ? `~326 total (${allManga.length} loaded)` : `${allManga.length} total`
+              contextBackgroundLoading ? `~357 total (${allManga.length} loaded)` : `${allManga.length} total`
             }
           </div>
         </div>

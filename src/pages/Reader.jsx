@@ -99,7 +99,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       }
       return { pages: parsed.pages, chapterNum: parsed.chapterNum };
     } catch (err) {
-      console.error('Cache read error:', err);
       return null;
     }
   };
@@ -112,7 +111,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         JSON.stringify({ pages: payload.pages, chapterNum: payload.chapterNum, timestamp: Date.now() })
       );
     } catch (err) {
-      console.error('Cache write error:', err);
     }
   };
 
@@ -142,7 +140,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         setAllChapters(sortedChapters);
       }
     } catch (err) {
-      console.error('Failed to fetch all chapters:', err);
     }
   }, [mangaId, allChapters.length]);
 
@@ -169,7 +166,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         }
       }
     } catch (err) {
-      console.error('Failed to load page position:', err);
     }
     return 0;
   }, []);
@@ -202,9 +198,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
   // OPTIMIZED: fetchChapter with better error handling and performance
   const fetchChapter = useCallback(async (id, isPreload = false, insertAtStart = false) => {
-    console.log(`Fetching chapter ${id} with preload: ${isPreload}, insertAtStart: ${insertAtStart}`);
     if (!id || loadedIds.has(id) || failedIds.has(id) || hasReachedEnd) {
-      console.log(`Skipped fetch for ${id} - already loaded/failed or reached end`);
       return;
     }
 
@@ -228,7 +222,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         const nextChapterNum = chapterNum + 1;
         const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
         if (!loadedIds.has(nextId)) {
-          console.log(`Pre-fetching next chapter from cache load: ${nextChapterNum}`);
           fetchChapter(nextId, true, false);
         }
       }
@@ -236,7 +229,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       return;
     } else if (cached) {
       // Cached but has insufficient pages - mark as failed and reached end
-      console.log(`Cached chapter ${id} has ${cached.pages?.length || 0} pages (below threshold ${MIN_PAGES_THRESHOLD}), marking as end`);
       setHasReachedEnd(true);
       setFailedIds((prev) => new Set(prev).add(id));
       // Remove from cache
@@ -250,22 +242,15 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
     try {
       const apiUrl = API_ENDPOINTS.CHAPTER(id);
-      console.log('🔍 Fetching chapter:', apiUrl);
 
       const response = await fetchWithRetry(apiUrl, { 
         signal: abortControllerRef.current?.signal,
         noRetry: true // Disable retries to avoid duplicate fetches on connection errors
       });
-      console.log('🔍 Response status:', response.status);
       
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
-      console.log('🔍 Chapter data received:', {
-        id,
-        pages: data.pages?.length,
-        firstPageUrl: data.pages?.[0]
-      });
 
       // Filter out false positives - real chapters should have at least 5 pages
       const MIN_PAGES_THRESHOLD = 5;
@@ -302,7 +287,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
           setTimeout(() => {
             // Check if request should be cancelled (chapter changed)
             if (abortControllerRef.current?.signal.aborted) {
-              console.log('🔍 Remaining pages load cancelled due to chapter change');
               return;
             }
 
@@ -340,7 +324,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         }
       } else {
         // Handle empty response - mark as end and failed
-        console.log(`Chapter ${id} has no pages, marking as end`);
         setHasReachedEnd(true);
         setFailedIds((prev) => new Set(prev).add(id));
         // Don't cache empty chapters so they won't be tried again from cache
@@ -350,11 +333,9 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     } catch (err) {
       // Don't log error if it's just an abort (normal during navigation/strict mode)
       if (err.name === 'AbortError' || err.message.includes('aborted')) {
-        console.log('🔍 Request aborted (normal during navigation)');
         return;
       }
 
-      console.error("Fetch failed:", err);
       // Check if this is a 404, indicating no more chapters
       if (err.message.includes('Status: 404')) {
         setHasReachedEnd(true);
@@ -462,7 +443,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
             
             // Always update URL to reflect current chapter (forward or backward)
             if (currentChapterId && currentChapterId !== chapterId) {
-              // console.log('Updating URL to current chapter:', currentChapterId);
               
               // Check if we're going backwards (to a previous chapter)
               const currentChapter = chapters.find(ch => ch.id === currentChapterId);
@@ -481,10 +461,8 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                     if (!readChaptersData.includes(currentChapter.id)) {
                       readChaptersData.push(currentChapter.id);
                       localStorage.setItem(readChaptersKey, JSON.stringify(readChaptersData));
-                      // console.log('Chapter marked as read:', currentChapter.id);
                     }
                   } catch (err) {
-                    console.error('Failed to mark chapter as read:', err);
                   }
                 }
               }
@@ -516,7 +494,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                 const chapterId = pageId.substring(0, lastDashIndex);
                 const pageIndex = parseInt(pageId.substring(lastDashIndex + 1));
 
-                // console.log('Page tracking:', { pageId, chapterId, pageIndex });
 
                 if (!isNaN(pageIndex)) {
                   savePagePosition(chapterId, pageIndex);
@@ -534,7 +511,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     );
 
     const pages = document.querySelectorAll('[data-page-id]');
-    // console.log('Found pages to track:', pages.length);
     pages.forEach((page) => observer.observe(page));
     
     // Also observe the last page of each chapter for end detection
@@ -546,7 +522,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
           (entries) => {
             entries.forEach((entry) => {
               if (entry.isIntersecting) {
-                // console.log('Chapter end reached:', { chapterId: chapter.id, lastPage: lastPageIndex + 1 });
                 savePagePosition(chapter.id, lastPageIndex);
                 setVisiblePage({ chapterId: chapter.id, pageIndex: lastPageIndex });
 
@@ -559,11 +534,9 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                     if (!readChaptersData.includes(chapter.id)) {
                       readChaptersData.push(chapter.id);
                       localStorage.setItem(readChaptersKey, JSON.stringify(readChaptersData));
-                      // console.log('Chapter marked as read:', chapter.id, 'for manga:', mangaId);
                     }
                   }
                 } catch (err) {
-                  console.error('Failed to mark chapter as read:', err);
                 }
               }
             });
@@ -769,7 +742,6 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     const displayChapterId = visiblePage.chapterId || activeChapterId;
     const displayPageIndex = visiblePage.pageIndex !== null ? visiblePage.pageIndex : (currentPage.pageIndex || 0);
     
-    // console.log('Position debug:', { 
     //   visiblePage, 
     //   activeChapterId, 
     //   currentPage, 

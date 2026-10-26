@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
+import { useTheme } from '../contexts/ThemeContext';
 
 const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   const { mangaId } = useParams();
   const navigate = useNavigate();
+  const { darkMode } = useTheme();
   const [manga, setManga] = useState(propManga);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     const readChapterIds = new Set(readChaptersData);
     
     setReadChapters(readChapterIds);
-    // console.log('Read chapters loaded:', readChapterIds.size, 'chapters for manga:', manga.id);
   }, [manga?.id]);
 
   // Get saved page position for a chapter
@@ -86,7 +87,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         }
       }
     } catch (err) {
-      console.error('Failed to load page position:', err);
     }
     return null;
   };
@@ -124,7 +124,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           return;
         }
       } catch (err) {
-        console.error('Failed to parse cached manga:', err);
       }
     }
 
@@ -144,7 +143,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           } else if (data && Array.isArray(data.results)) {
             allManga = data.results;
           } else {
-            console.error('Unexpected API response format:', data);
             return;
           }
 
@@ -159,11 +157,9 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
               timestamp: Date.now()
             }));
           } else {
-            console.error('Manga not found in collections');
           }
         }
       } catch (error) {
-        console.error('Failed to fetch manga:', error);
       }
     };
 
@@ -218,10 +214,8 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       if (!existingReadChapters.includes(chapter.id)) {
         existingReadChapters.push(chapter.id);
         localStorage.setItem(readChaptersKey, JSON.stringify(existingReadChapters));
-        console.log('Chapter marked as read:', chapter.id);
       }
     } catch (err) { 
-      console.error("Read chapters error:", err); 
     }
     
     // Also save to history for the "last read" functionality
@@ -250,7 +244,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       }
       localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
     } catch (err) { 
-      console.error("History Error:", err); 
     }
     
     // Call the original onChapterRead function
@@ -271,18 +264,15 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           newSet.delete(chapterId);
           const updatedChapters = existingReadChapters.filter(id => id !== chapterId);
           localStorage.setItem(readChaptersKey, JSON.stringify(updatedChapters));
-          console.log('Chapter marked as unread:', chapterId);
         } else {
           // Add to read chapters
           newSet.add(chapterId);
           if (!existingReadChapters.includes(chapterId)) {
             existingReadChapters.push(chapterId);
             localStorage.setItem(readChaptersKey, JSON.stringify(existingReadChapters));
-            console.log('Chapter marked as read:', chapterId);
           }
         }
       } catch (err) {
-        console.error("Toggle read status error:", err);
       }
       
       return newSet;
@@ -713,7 +703,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         });
       }
     } catch (err) {
-      console.error("Chapters fetch error:", err);
 
       // FALLBACK: Try to use any cached data even if expired
       const fallbackCache = readDetailsCache(manga.id, true); // Ignore TTL
@@ -746,12 +735,12 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
   if (loading || !manga) {
     return (
-      <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
+      <div className={`min-h-screen p-6 sm:p-10 pb-24 lg:pb-10 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#FAFAF8] text-stone-900'}`}>
         <div className="max-w-[1600px] mx-auto">
           {/* Back Navigation */}
-          <button 
+          <button
             onClick={handleBack}
-            className="flex items-center space-x-2 text-gray-400 mb-8 hover:text-white transition-colors duration-200"
+            className={`flex items-center space-x-2 mb-8 ${darkMode ? 'text-gray-400 hover:text-white' : 'text-stone-500 hover:text-stone-900'} transition-colors duration-200`}
           >
             <ChevronLeft size={20} />
             <span className="font-medium">Back</span>
@@ -762,25 +751,25 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             <div className="w-full lg:w-[320px] flex-shrink-0">
               <div className="space-y-6">
                 {/* Cover Skeleton */}
-                <div className="relative w-full aspect-[3/4.5] rounded-xl overflow-hidden border border-white/5">
-                  <div className="w-full h-full bg-gray-800/50 animate-pulse" />
+                <div className={`relative w-full aspect-[3/4.5] rounded-xl overflow-hidden border ${darkMode ? 'border-white/5' : 'border-stone-200'}`}>
+                  <div className={`w-full h-full animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`} />
                 </div>
-                
+
                 {/* Buttons Skeleton */}
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="w-full py-4 bg-gray-800/50 rounded-xl animate-pulse"></div>
-                  <div className="w-full py-3.5 bg-gray-800/50 rounded-xl animate-pulse"></div>
+                  <div className={`w-full py-4 rounded-xl animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                  <div className={`w-full py-3.5 rounded-xl animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                 </div>
 
                 {/* Info Grid Skeleton */}
-                <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-stone-100 border-stone-200'}`}>
                   <div className="text-center">
-                    <div className="h-3 bg-gray-800/50 rounded animate-pulse mb-1"></div>
-                    <div className="h-6 bg-gray-800/50 rounded animate-pulse"></div>
+                    <div className={`h-3 rounded animate-pulse mb-1 ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                    <div className={`h-6 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                   </div>
                   <div className="text-center">
-                    <div className="h-3 bg-gray-800/50 rounded animate-pulse mb-1"></div>
-                    <div className="h-6 bg-gray-800/50 rounded animate-pulse"></div>
+                    <div className={`h-3 rounded animate-pulse mb-1 ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                    <div className={`h-6 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                   </div>
                 </div>
               </div>
@@ -790,41 +779,41 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             <div className="flex-1 min-w-0">
               {/* Title Skeleton */}
               <div className="mb-8">
-                <div className="h-12 bg-gray-800/50 rounded animate-pulse mb-4"></div>
+                <div className={`h-12 rounded animate-pulse mb-4 ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
               </div>
 
               {/* Synopsis Skeleton */}
               <div className="space-y-10">
                 <section>
                   <div className="flex items-center space-x-2 mb-4">
-                    <div className="w-5 h-5 bg-gray-800/50 rounded animate-pulse"></div>
-                    <div className="h-5 bg-gray-800/50 rounded animate-pulse"></div>
+                    <div className={`w-5 h-5 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                    <div className={`h-5 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                   </div>
                   <div className="space-y-3">
-                    <div className="h-4 bg-gray-800/50 rounded animate-pulse"></div>
-                    <div className="h-4 bg-gray-800/50 rounded animate-pulse"></div>
-                    <div className="h-4 bg-gray-800/50 rounded animate-pulse"></div>
+                    <div className={`h-4 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                    <div className={`h-4 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                    <div className={`h-4 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                   </div>
                 </section>
 
                 {/* Chapters List Skeleton */}
                 <section>
-                  <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+                  <div className={`flex items-center justify-between mb-6 border-b pb-4 ${darkMode ? 'border-white/10' : 'border-stone-200'}`}>
                     <div className="flex items-center space-x-2">
-                      <div className="w-5 h-5 bg-gray-800/50 rounded animate-pulse"></div>
-                      <div className="h-6 bg-gray-800/50 rounded animate-pulse"></div>
+                      <div className={`w-5 h-5 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                      <div className={`h-6 rounded animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                     </div>
-                    <div className="w-20 h-6 bg-gray-800/50 rounded-lg animate-pulse"></div>
+                    <div className={`w-20 h-6 rounded-lg animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {Array.from({ length: 6 }).map((_, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+                      <div key={index} className={`flex items-center justify-between p-4 rounded-xl border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-stone-100 border-stone-200'}`}>
                         <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-gray-800/50 rounded-lg animate-pulse"></div>
+                          <div className={`w-10 h-10 rounded-lg animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                           <div>
-                            <div className="h-4 bg-gray-800/50 rounded w-32 animate-pulse mb-2"></div>
-                            <div className="h-3 bg-gray-800/50 rounded w-20 animate-pulse"></div>
+                            <div className={`h-4 rounded w-32 animate-pulse mb-2 ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
+                            <div className={`h-3 rounded w-20 animate-pulse ${darkMode ? 'bg-gray-800/50' : 'bg-stone-200'}`}></div>
                           </div>
                         </div>
                       </div>
@@ -840,17 +829,21 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   }
 
   const status = mangaDetails.status?.toLowerCase() || 'ongoing';
-  const statusStyles = status === 'completed' 
-    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" 
-    : "bg-blue-500/10 text-blue-400 border-blue-500/20";
+  const statusStyles = status === 'completed'
+    ? darkMode
+      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+      : "bg-emerald-50 text-emerald-600 border-emerald-200"
+    : darkMode
+      ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+      : "bg-blue-50 text-blue-600 border-blue-200";
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 sm:p-10">
+    <div className={`min-h-screen p-6 sm:p-10 pb-24 lg:pb-10 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#FAFAF8] text-stone-900'}`}>
       <div className="max-w-[1600px] mx-auto">
         {/* Back Navigation */}
-        <button 
+        <button
           onClick={handleBack}
-          className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors mb-8 group"
+          className={`flex items-center space-x-2 ${darkMode ? 'text-gray-400 hover:text-white' : 'text-stone-500 hover:text-stone-900'} transition-colors mb-8 group`}
         >
           <ChevronLeft size={20} />
           <span className="font-medium">Back</span>
@@ -861,9 +854,9 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col">
             <div className="space-y-6">
               <div className="relative group">
-                <div className="relative w-full aspect-[3/4.5] rounded-xl overflow-hidden border border-white/5">
-                  <img 
-                    src={mangaDetails.cover_url} 
+                <div className={`relative w-full aspect-[3/4.5] rounded-xl overflow-hidden border ${darkMode ? 'border-white/5' : 'border-stone-200'}`}>
+                  <img
+                    src={mangaDetails.cover_url}
                     alt={mangaDetails.title}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -872,11 +865,11 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   />
                 </div>
               </div>
-              
+
               {/* Title - only visible on mobile */}
               <header className="lg:hidden mb-4">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-3xl font-bold text-white tracking-tight">
+                  <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-stone-900'}`}>
                     {cleanTitle(mangaDetails.title)}
                   </h1>
                   {isBackgroundRefreshing && (
@@ -884,12 +877,16 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   )}
                 </div>
               </header>
-              
-              <div className="grid grid-cols-1 gap-3">
+
+              <div className="hidden lg:block">
                 <button
                   onClick={() => chapters.length > 0 && onChapterRead(chapters[chapters.length - 1])}
                   disabled={chapters.length === 0}
-                  className="flex items-center justify-center space-x-2 w-full py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-2xl border border-white/10 transition-all active:scale-[0.98]"
+                  className={`flex items-center justify-center space-x-2 w-full py-3 mb-2 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
+                    darkMode
+                      ? 'bg-white/10 hover:bg-white/15 text-white border-white/10'
+                      : 'bg-stone-200 hover:bg-stone-300 text-stone-900 border-stone-300'
+                  }`}
                 >
                   <Play size={18} fill="currentColor" />
                   <span>Start Reading</span>
@@ -898,8 +895,12 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   onClick={toggleLibrary}
                   className={`flex items-center justify-center space-x-2 w-full py-3 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
                     isInLibrary
-                      ? 'bg-white/5 hover:bg-white/10 text-yellow-400 border-yellow-400/30'
-                      : 'bg-white/[0.03] hover:bg-white/[0.06] text-white border-white/5'
+                      ? darkMode
+                        ? 'bg-white/5 hover:bg-white/10 text-yellow-400 border-yellow-400/30'
+                        : 'bg-yellow-50 hover:bg-yellow-100 text-yellow-600 border-yellow-200'
+                      : darkMode
+                        ? 'bg-white/[0.03] hover:bg-white/[0.06] text-white border-white/5'
+                        : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-200'
                   }`}
                 >
                   <Star size={18} fill={isInLibrary ? 'currentColor' : 'none'} />
@@ -908,16 +909,16 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
               </div>
 
               {/* Quick Info Grid */}
-              <div className="grid grid-cols-2 gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+              <div className={`grid grid-cols-2 gap-4 p-4 rounded-2xl border ${darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'}`}>
                 <div className="text-center">
-                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-1">Status</p>
+                  <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Status</p>
                   <span className={`text-xs px-2.5 py-1 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
                     {status}
                   </span>
                 </div>
                 <div className="text-center">
-                  <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-1">Chapters</p>
-                  <span className="text-white font-bold">{chapters.length}</span>
+                  <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Chapters</p>
+                  <span className={`font-bold ${darkMode ? 'text-white' : 'text-stone-900'}`}>{chapters.length}</span>
                 </div>
               </div>
             </div>
@@ -928,7 +929,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             {/* Title - only visible on desktop */}
             <header className="mb-8 hidden lg:block">
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                <h1 className={`text-3xl md:text-4xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-stone-900'}`}>
                   {cleanTitle(mangaDetails.title)}
                 </h1>
                 {isBackgroundRefreshing && (
@@ -941,25 +942,20 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
             <div className="space-y-10">
               {/* Synopsis Section */}
               <section className="relative">
-                <div className="flex items-center space-x-2 mb-4 text-blue-400 border-b border-white/5 pb-4">
-                  <Info size={18} />
-                  <h2 className="text-sm font-black uppercase tracking-[0.2em]">Summary</h2>
-                </div>
-
                 <div className={`relative transition-all duration-500 ${!isDescriptionExpanded ? 'max-h-24 overflow-hidden' : 'max-h-[1000px]'}`}>
-                  <p className="text-gray-400 leading-relaxed text-lg whitespace-pre-wrap">
+                  <p className={`${darkMode ? 'text-gray-400' : 'text-stone-600'} leading-relaxed text-lg whitespace-pre-wrap`}>
                     {mangaDetails.description || 'The description for this series is currently unavailable.'}
                   </p>
 
                   {/* Alternative Titles - at the bottom of description */}
                   {mangaDetails.alternative_titles && mangaDetails.alternative_titles.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-white/5">
-                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2">Alternatives</p>
+                    <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-white/5' : 'border-stone-200'}`}>
+                      <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-stone-500'} font-bold uppercase tracking-widest mb-2`}>Alternatives</p>
                       <div className="flex flex-wrap gap-2">
                         {mangaDetails.alternative_titles.map((title, index) => (
                           <span
                             key={index}
-                            className="text-xs px-3 py-1 bg-white/5 text-gray-400 rounded-full border border-white/10"
+                            className={`text-xs px-3 py-1 ${darkMode ? 'bg-white/5 text-gray-400 border-white/10' : 'bg-stone-100 text-stone-600 border-stone-200'} rounded-full border`}
                           >
                             {title}
                           </span>
@@ -967,21 +963,21 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                       </div>
                     </div>
                   )}
-                  {!isDescriptionExpanded && <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent"></div>}
+                  {!isDescriptionExpanded && <div className={`absolute inset-0 bg-gradient-to-t ${darkMode ? 'from-black' : 'from-[#FAFAF8]'} to-transparent`}></div>}
                 </div>
-                <button 
+                <button
                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                   className="mt-4 text-blue-500 hover:text-blue-400 text-sm font-bold uppercase tracking-tighter"
+                   className={`mt-4 ${darkMode ? 'text-blue-500 hover:text-blue-400' : 'text-blue-600 hover:text-blue-500'} text-sm font-bold uppercase tracking-tighter`}
                 >
-                  {isDescriptionExpanded ? 'Show Less' : 'Read Full Description'}
+                  {isDescriptionExpanded ? 'Show Less' : 'Show More'}
                 </button>
               </section>
 
               {/* Chapters List */}
               <section>
-                <div className="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
+                <div className={`flex items-center justify-between mb-6 border-b pb-4 ${darkMode ? 'border-white/5' : 'border-stone-200'}`}>
                   <div className="flex items-center space-x-2">
-                    <h2 className="text-xl font-bold text-white uppercase tracking-wider">Chapter List</h2>
+                    <h2 className={`text-xl font-bold uppercase tracking-wider ${darkMode ? 'text-white' : 'text-stone-900'}`}>Chapter List</h2>
                   </div>
                 </div>
 
@@ -995,15 +991,15 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                         return (
                           <div
                             key={chapter.id}
-                            className={`relative bg-white/[0.03] border border-white/5 rounded-2xl overflow-hidden group backdrop-blur-sm ${
-                              isRead ? 'opacity-60' : ''
-                            }`}
+                            className={`relative border rounded-2xl overflow-hidden group backdrop-blur-sm ${
+                              darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'
+                            } ${isRead ? 'opacity-60' : ''}`}
                           >
                             {/* Swipe indicator - appears only when swiping, stays stationary */}
                             <div className={`absolute right-4 top-1/2 -translate-y-1/2 transition-opacity duration-200 ease-in-out pointer-events-none z-10 ${
                               swipeState.chapterId === chapter.id && swipeState.translateX > 30 ? 'opacity-100' : 'opacity-0'
                             }`}>
-                              <ChevronRight size={24} className="text-white" />
+                              <ChevronRight size={24} className={darkMode ? 'text-white' : 'text-stone-900'} />
                             </div>
 
                             <div
@@ -1025,14 +1021,14 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                                     <div className="flex items-center space-x-2 mb-1">
                                       <h3 className={`font-bold text-base transition-colors truncate ${
                                         isRead
-                                          ? 'text-green-400 group-hover:text-green-300'
-                                          : 'text-white group-hover:text-white/80'
+                                          ? darkMode ? 'text-green-400 group-hover:text-green-300' : 'text-green-600 group-hover:text-green-500'
+                                          : darkMode ? 'text-white group-hover:text-white/80' : 'text-stone-900 group-hover:text-stone-700'
                                       }`}>
                                         {getChapterDisplayTitle(chapter)}
                                       </h3>
                                     </div>
                                     <div className="flex items-center space-x-3 text-xs">
-                                      <div className="flex items-center space-x-1 text-gray-500">
+                                      <div className={`flex items-center space-x-1 ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>
                                         <Clock size={11} />
                                         <span className="font-medium">
                                           {getChapterDisplayDate(chapter)}
@@ -1049,15 +1045,48 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                       })}
                     </>
                   ) : (
-                    <div className="py-16 text-center bg-white/[0.03] rounded-2xl border border-white/5 backdrop-blur-sm">
-                      <Book size={48} className="mx-auto text-gray-600 mb-4 opacity-30" />
-                      <p className="text-gray-400 font-medium tracking-wide mb-2">No chapters available</p>
-                      <p className="text-gray-500 text-sm">Chapters will appear here once they're indexed</p>
+                    <div className={`py-16 text-center rounded-2xl border backdrop-blur-sm ${darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'}`}>
+                      <Book size={48} className={`mx-auto mb-4 opacity-30 ${darkMode ? 'text-gray-600' : 'text-stone-400'}`} />
+                      <p className={`font-medium tracking-wide mb-2 ${darkMode ? 'text-gray-400' : 'text-stone-600'}`}>No chapters available</p>
+                      <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Chapters will appear here once they're indexed</p>
                     </div>
                   )}
                 </div>
               </section>
             </div>
+          </div>
+        </div>
+
+        {/* Mobile Floating Action Bar */}
+        <div className={`lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t p-4 z-50 ${darkMode ? 'bg-[#050505]/95 border-white/10' : 'bg-[#FAFAF8]/95 border-stone-200'}`}>
+          <div className="flex gap-3">
+            <button
+              onClick={() => chapters.length > 0 && onChapterRead(chapters[chapters.length - 1])}
+              disabled={chapters.length === 0}
+              className={`flex-1 flex items-center justify-center space-x-2 py-3 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
+                darkMode
+                  ? 'bg-white/10 hover:bg-white/15 text-white border-white/10'
+                  : 'bg-stone-200 hover:bg-stone-300 text-stone-900 border-stone-300'
+              }`}
+            >
+              <Play size={18} fill="currentColor" />
+              <span>Start Reading</span>
+            </button>
+            <button
+              onClick={toggleLibrary}
+              className={`flex items-center justify-center space-x-2 px-6 py-3 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
+                isInLibrary
+                  ? darkMode
+                    ? 'bg-white/5 hover:bg-white/10 text-yellow-400 border-yellow-400/30'
+                    : 'bg-yellow-50 hover:bg-yellow-100 text-yellow-600 border-yellow-200'
+                  : darkMode
+                    ? 'bg-white/[0.03] hover:bg-white/[0.06] text-white border-white/5'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-900 border-stone-200'
+              }`}
+            >
+              <Star size={18} fill={isInLibrary ? 'currentColor' : 'none'} />
+              <span className="hidden sm:inline">{isInLibrary ? 'Remove' : 'Add'}</span>
+            </button>
           </div>
         </div>
       </div>

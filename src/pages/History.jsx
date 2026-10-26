@@ -30,7 +30,6 @@ const History = ({ onOpenManga }) => {
       const latestChapterNum = Math.max(...chapterNumbers);
       return `Chapter ${latestChapterNum}`;
     } catch (err) {
-      console.error('Failed to get latest read chapter:', err);
       return null;
     }
   }, []);

@@ -12,6 +12,16 @@ const HeroCarousel = React.memo(({ manga, onMangaClick, isLoading = false }) => 
   const scrollRef = useRef(null);
   const containerRef = useRef(null);
 
+  // Clean title to remove chapter numbers and other metadata
+  const cleanTitle = (title) => {
+    if (!title) return title;
+    let cleaned = title.replace(/^\d+\.\d+/, '');
+    cleaned = cleaned.replace(/Chapter\d+(\.\d+)?/gi, '');
+    cleaned = cleaned.replace(/Ch\.?\d+(\.\d+)?/gi, '');
+    cleaned = cleaned.trim();
+    return cleaned;
+  };
+
   // Extract rating from title if not present
   const extractRating = (item) => {
     if (item.rating) return item.rating;
@@ -226,8 +236,8 @@ const HeroCarousel = React.memo(({ manga, onMangaClick, isLoading = false }) => 
 
             {/* Floating Title (Appears on Hover) */}
             <div className="absolute bottom-4 left-0 right-0 text-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 z-30">
-              <h3 className="text-sm font-black uppercase tracking-tight truncate px-2 text-white drop-shadow-lg bg-black/60 backdrop-blur-sm rounded-lg">
-                {item.title?.replace(/^\d+\.\d+/, '')}
+              <h3 className="text-sm font-black uppercase tracking-tight truncate px-2 drop-shadow-lg bg-black/60 backdrop-blur-sm rounded-lg" style={{ color: '#ffffff' }}>
+                {cleanTitle(item.title)}
               </h3>
             </div>
           </div>

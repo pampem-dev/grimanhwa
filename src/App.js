@@ -15,6 +15,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const Reader = lazy(() => import('./pages/Reader'));
 const Login = lazy(() => import('./pages/Login'));
 const Profile = lazy(() => import('./pages/Profile'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -42,7 +43,7 @@ function AppContent() {
         title: manga.title,
         coverUrl: manga.cover_url,
         manga,
-        lastChapterId: chapter?.id || chapter, 
+        lastChapterId: chapter?.id || chapter,
         lastChapterLabel: chapter?.chapter_num ? `Chapter ${chapter.chapter_num}` : 'Last read',
         lastReadAt: Date.now(),
       };
@@ -118,6 +119,7 @@ function AppContent() {
     if (path.startsWith('/settings')) return 'settings';
     if (path.startsWith('/login')) return 'login';
     if (path.startsWith('/profile')) return 'profile';
+    if (path.startsWith('/privacy')) return 'privacy';
     return 'home';
   };
 
@@ -277,6 +279,7 @@ function AppContent() {
             <Profile />
           </Layout>
         } />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route
           path="/details/:mangaId"
           element={

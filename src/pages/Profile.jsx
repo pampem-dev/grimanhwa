@@ -8,7 +8,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
   const [user, setUser] = useState(null);
-  const [stats, setStats] = useState({ totalRead: 0, librarySize: 0, lastRead: 'Never', memberSince: '2024' });
+  const [stats, setStats] = useState({ totalRead: 0, librarySize: 0, lastRead: 'Never', memberSince: null });
   const [localStats, setLocalStats] = useState({ totalRead: 0, librarySize: 0 });
   const [streak, setStreak] = useState(0);
   const [readingDays, setReadingDays] = useState([]);
@@ -16,7 +16,18 @@ const Profile = () => {
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+
+      // Calculate memberSince immediately from user data
+      const memberSince = parsedUser.created_at
+        ? new Date(parsedUser.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+        : null;
+
+      setStats(prev => ({
+        ...prev,
+        memberSince
+      }));
     } else {
       navigate('/login');
     }
@@ -42,7 +53,7 @@ const Profile = () => {
         });
         if (response.ok) {
           const data = await response.json();
-          const memberSince = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '2024';
+          const memberSince = user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : null;
           setStats({
             totalRead: data.total_read || 0,
             librarySize: data.library_size || 0,
@@ -53,7 +64,6 @@ const Profile = () => {
           setReadingDays(data.reading_days || []);
         }
       } catch (error) {
-        console.error('Failed to fetch stats:', error);
       }
     };
 
@@ -66,8 +76,6 @@ const Profile = () => {
   useEffect(() => {
     const history = JSON.parse(localStorage.getItem('manga_reader_history_v1') || '[]');
     const library = JSON.parse(localStorage.getItem('mangaLibrary') || '[]');
-    console.log('Local history:', history.length, history);
-    console.log('Local library:', library.length, library);
     setLocalStats({
       totalRead: history.length,
       librarySize: library.length,
@@ -115,10 +123,12 @@ const Profile = () => {
                 <div className={`px-4 py-1.5 rounded-full text-xs font-semibold mb-6 ${darkMode ? 'bg-white/10 text-gray-300 border border-white/20' : 'bg-stone-100 text-stone-600 border border-stone-300'}`}>
                   Member
                 </div>
-                <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-stone-400'}`}>
-                  <Shield size={14} className={darkMode ? 'text-gray-400' : 'text-stone-400'} />
-                  Member since {stats.memberSince}
-                </div>
+                {stats.memberSince && (
+                  <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-stone-400'}`}>
+                    <Shield size={14} className={darkMode ? 'text-gray-400' : 'text-stone-400'} />
+                    Member since {stats.memberSince}
+                  </div>
+                )}
               </div>
             </div>
           </div>

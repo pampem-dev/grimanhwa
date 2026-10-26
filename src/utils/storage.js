@@ -16,18 +16,25 @@ const processQueue = () => {
       try {
         localStorage.setItem(key, value);
       } catch (err) {
-        console.error('Storage error:', err);
       }
     });
 
     if (storageQueue.length > 0) {
-      requestIdleCallback(processBatch, { timeout: 1000 });
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(processBatch, { timeout: 1000 });
+      } else {
+        setTimeout(processBatch, 100); // Fallback for browsers without requestIdleCallback
+      }
     } else {
       isProcessing = false;
     }
   };
 
-  requestIdleCallback(processBatch, { timeout: 1000 });
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(processBatch, { timeout: 1000 });
+  } else {
+    setTimeout(processBatch, 100); // Fallback for browsers without requestIdleCallback
+  }
 };
 
 // Non-blocking localStorage.setItem
@@ -42,7 +49,6 @@ export const getItem = (key) => {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch (err) {
-    console.error('Storage read error:', err);
     return null;
   }
 };
@@ -52,7 +58,6 @@ export const removeItemAsync = (key) => {
   try {
     localStorage.removeItem(key);
   } catch (err) {
-    console.error('Storage remove error:', err);
   }
 };
 
@@ -61,6 +66,5 @@ export const clearStorage = () => {
   try {
     localStorage.clear();
   } catch (err) {
-    console.error('Storage clear error:', err);
   }
 };
