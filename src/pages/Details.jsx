@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight } from 'lucide-react';
+import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight, ChevronDown } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -11,11 +11,12 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   const [manga, setManga] = useState(propManga);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false); // Default collapsed (show less)
   const [mangaDetails, setMangaDetails] = useState(propManga);
   const [readChapters, setReadChapters] = useState(new Set()); // Track read chapters
   const [isInLibrary, setIsInLibrary] = useState(false); // Track if manga is in library
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false); // Track background refresh
+  const [activeTab, setActiveTab] = useState('chapters'); // Track active tab
+  const [showAlternativeTitles, setShowAlternativeTitles] = useState(false); // Track alternative titles expansion on mobile
   
   // Swipe state
   const [swipeState, setSwipeState] = useState({ chapterId: null, startX: 0, translateX: 0 });
@@ -499,6 +500,12 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     return cleaned;
   };
 
+  const extractRatingFromTitle = (title) => {
+    if (!title) return null;
+    const match = title.match(/^(\d+\.\d+)/);
+    return match ? match[1] : null;
+  };
+
   const extractChapterNumber = (ch) => {
     // Primary: Use the number field from backend (most reliable)
     if (ch.number) {
@@ -868,7 +875,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
               {/* Title - only visible on mobile */}
               <header className="lg:hidden mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-4">
                   <h1 className={`text-3xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-stone-900'}`}>
                     {cleanTitle(mangaDetails.title)}
                   </h1>
@@ -876,6 +883,52 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                   )}
                 </div>
+                {/* Status Badge */}
+                <span className={`inline-block mb-4 text-xs px-2.5 py-1 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
+                  {status}
+                </span>
+                {/* Quick Info Grid - Mobile */}
+                <div className={`grid grid-cols-2 gap-4 p-4 rounded-2xl border mb-4 ${darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'}`}>
+                  <div className="text-center">
+                    <Star size={20} className={`mx-auto mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-500'}`} fill="currentColor" />
+                    <p className={`text-lg font-bold mb-1 ${darkMode ? 'text-white' : 'text-stone-900'}`}>
+                      {manga.rating || mangaDetails.rating || extractRatingFromTitle(mangaDetails.title) || 'N/A'}
+                    </p>
+                    <p className={`text-[10px] uppercase font-bold tracking-widest ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Rating</p>
+                  </div>
+                  <div className="text-center">
+                    <Book size={20} className={`mx-auto mb-2 ${darkMode ? 'text-green-400' : 'text-green-500'}`} />
+                    <p className={`text-lg font-bold mb-1 ${darkMode ? 'text-white' : 'text-stone-900'}`}>{chapters.length}</p>
+                    <p className={`text-[10px] uppercase font-bold tracking-widest ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Chapters</p>
+                  </div>
+                </div>
+                {/* Alternative Titles */}
+                {mangaDetails.alternative_titles && mangaDetails.alternative_titles.length > 0 && (
+                  <div className="mb-4">
+                    <button
+                      onClick={() => setShowAlternativeTitles(!showAlternativeTitles)}
+                      className="flex items-center justify-between w-full mb-2"
+                    >
+                      <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-stone-500'} font-bold uppercase tracking-widest`}>Also Known As</p>
+                      <ChevronDown
+                        size={20}
+                        className={`transition-transform duration-300 ${darkMode ? 'text-gray-400' : 'text-stone-500'} ${showAlternativeTitles ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    <div className={`transition-all duration-300 ${showAlternativeTitles ? 'max-h-[500px] opacity-100' : 'max-h-12 overflow-hidden opacity-80'}`}>
+                      <div className="flex flex-wrap gap-2">
+                        {mangaDetails.alternative_titles.map((title, index) => (
+                          <span
+                            key={index}
+                            className={`text-xs px-3 py-1 ${darkMode ? 'bg-white/5 text-gray-400 border-white/10' : 'bg-stone-100 text-stone-600 border-stone-200'} rounded-full border`}
+                          >
+                            {title}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </header>
 
               <div className="hidden lg:block">
@@ -908,17 +961,19 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                 </button>
               </div>
 
-              {/* Quick Info Grid */}
-              <div className={`grid grid-cols-2 gap-4 p-4 rounded-2xl border ${darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'}`}>
+              {/* Quick Info Grid - Desktop Only */}
+              <div className={`hidden lg:grid grid-cols-2 gap-4 p-4 rounded-2xl border ${darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'}`}>
                 <div className="text-center">
-                  <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Status</p>
-                  <span className={`text-xs px-2.5 py-1 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
-                    {status}
-                  </span>
+                  <Star size={20} className={`mx-auto mb-2 ${darkMode ? 'text-yellow-400' : 'text-yellow-500'}`} fill="currentColor" />
+                  <p className={`text-lg font-bold mb-1 ${darkMode ? 'text-white' : 'text-stone-900'}`}>
+                    {manga.rating || mangaDetails.rating || extractRatingFromTitle(mangaDetails.title) || 'N/A'}
+                  </p>
+                  <p className={`text-[10px] uppercase font-bold tracking-widest ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Rating</p>
                 </div>
                 <div className="text-center">
-                  <p className={`text-[10px] uppercase font-bold tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Chapters</p>
-                  <span className={`font-bold ${darkMode ? 'text-white' : 'text-stone-900'}`}>{chapters.length}</span>
+                  <Book size={20} className={`mx-auto mb-2 ${darkMode ? 'text-green-400' : 'text-green-500'}`} />
+                  <p className={`text-lg font-bold mb-1 ${darkMode ? 'text-white' : 'text-stone-900'}`}>{chapters.length}</p>
+                  <p className={`text-[10px] uppercase font-bold tracking-widest ${darkMode ? 'text-gray-500' : 'text-stone-500'}`}>Chapters</p>
                 </div>
               </div>
             </div>
@@ -928,7 +983,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           <div className="flex-1 min-w-0">
             {/* Title - only visible on desktop */}
             <header className="mb-8 hidden lg:block">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-4">
                 <h1 className={`text-3xl md:text-4xl font-bold tracking-tight ${darkMode ? 'text-white' : 'text-stone-900'}`}>
                   {cleanTitle(mangaDetails.title)}
                 </h1>
@@ -936,51 +991,132 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                 )}
               </div>
+              {/* Status Badge */}
+              <span className={`inline-block mb-4 text-xs px-2.5 py-1 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
+                {status}
+              </span>
+              {/* Alternative Titles */}
+              {mangaDetails.alternative_titles && mangaDetails.alternative_titles.length > 0 && (
+                <div>
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-stone-500'} font-bold uppercase tracking-widest mb-2`}>Also Known As</p>
+                  <div className="flex flex-wrap gap-2">
+                    {mangaDetails.alternative_titles.map((title, index) => (
+                      <span
+                        key={index}
+                        className={`text-xs px-3 py-1 ${darkMode ? 'bg-white/5 text-gray-400 border-white/10' : 'bg-stone-100 text-stone-600 border-stone-200'} rounded-full border`}
+                      >
+                        {title}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </header>
+
+            {/* Tab Selector - Desktop Only */}
+            <div className="mb-8 hidden lg:block">
+              <div className={`inline-flex p-1 rounded-xl ${darkMode ? 'bg-white/5' : 'bg-stone-100'}`}>
+                <button
+                  onClick={() => setActiveTab('chapters')}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-semibold text-sm transition-all ${
+                    activeTab === 'chapters'
+                      ? darkMode
+                        ? 'bg-white/10 text-white shadow-lg'
+                        : 'bg-white text-stone-900 shadow-md'
+                      : darkMode
+                      ? 'text-gray-400 hover:text-white'
+                      : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  <span>Chapters</span>
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    activeTab === 'chapters'
+                      ? darkMode
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-blue-100 text-blue-600'
+                      : darkMode
+                      ? 'bg-white/10'
+                      : 'bg-stone-200'
+                  }`}>
+                    {chapters.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('synopsis')}
+                  className={`px-6 py-2.5 rounded-lg font-semibold text-sm transition-all ${
+                    activeTab === 'synopsis'
+                      ? darkMode
+                        ? 'bg-white/10 text-white shadow-lg'
+                        : 'bg-white text-stone-900 shadow-md'
+                      : darkMode
+                      ? 'text-gray-400 hover:text-white'
+                      : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  Synopsis
+                </button>
+              </div>
+            </div>
+
+            {/* Mobile Tab Selector */}
+            <div className="mb-8 lg:hidden">
+              <div className={`inline-flex p-1 rounded-xl w-full ${darkMode ? 'bg-white/5' : 'bg-stone-100'}`}>
+                <button
+                  onClick={() => setActiveTab('chapters')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all ${
+                    activeTab === 'chapters'
+                      ? darkMode
+                        ? 'bg-white/10 text-white shadow-lg'
+                        : 'bg-white text-stone-900 shadow-md'
+                      : darkMode
+                        ? 'text-gray-400 hover:text-white'
+                        : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  <span>Chapters</span>
+                  <span className={`px-2 py-0.5 rounded text-xs ${
+                    activeTab === 'chapters'
+                      ? darkMode
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-blue-100 text-blue-600'
+                      : darkMode
+                        ? 'bg-white/10'
+                        : 'bg-stone-200'
+                  }`}>
+                    {chapters.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('synopsis')}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all ${
+                    activeTab === 'synopsis'
+                      ? darkMode
+                        ? 'bg-white/10 text-white shadow-lg'
+                        : 'bg-white text-stone-900 shadow-md'
+                      : darkMode
+                        ? 'text-gray-400 hover:text-white'
+                        : 'text-stone-500 hover:text-stone-900'
+                  }`}
+                >
+                  Synopsis
+                </button>
+              </div>
+            </div>
 
             {/* Content Sections */}
             <div className="space-y-10">
               {/* Synopsis Section */}
+              {activeTab === 'synopsis' && (
               <section className="relative">
-                <div className={`relative transition-all duration-500 ${!isDescriptionExpanded ? 'max-h-24 overflow-hidden' : 'max-h-[1000px]'}`}>
-                  <p className={`${darkMode ? 'text-gray-400' : 'text-stone-600'} leading-relaxed text-lg whitespace-pre-wrap`}>
-                    {mangaDetails.description || 'The description for this series is currently unavailable.'}
-                  </p>
-
-                  {/* Alternative Titles - at the bottom of description */}
-                  {mangaDetails.alternative_titles && mangaDetails.alternative_titles.length > 0 && (
-                    <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-white/5' : 'border-stone-200'}`}>
-                      <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-stone-500'} font-bold uppercase tracking-widest mb-2`}>Alternatives</p>
-                      <div className="flex flex-wrap gap-2">
-                        {mangaDetails.alternative_titles.map((title, index) => (
-                          <span
-                            key={index}
-                            className={`text-xs px-3 py-1 ${darkMode ? 'bg-white/5 text-gray-400 border-white/10' : 'bg-stone-100 text-stone-600 border-stone-200'} rounded-full border`}
-                          >
-                            {title}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {!isDescriptionExpanded && <div className={`absolute inset-0 bg-gradient-to-t ${darkMode ? 'from-black' : 'from-[#FAFAF8]'} to-transparent`}></div>}
-                </div>
-                <button
-                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                   className={`mt-4 ${darkMode ? 'text-blue-500 hover:text-blue-400' : 'text-blue-600 hover:text-blue-500'} text-sm font-bold uppercase tracking-tighter`}
-                >
-                  {isDescriptionExpanded ? 'Show Less' : 'Show More'}
-                </button>
+                <p className={`${darkMode ? 'text-gray-400' : 'text-stone-600'} leading-relaxed text-lg whitespace-pre-wrap`}>
+                  {mangaDetails.description || 'The description for this series is currently unavailable.'}
+                </p>
               </section>
+              )}
 
               {/* Chapters List */}
+              {activeTab === 'chapters' && (
               <section>
-                <div className={`flex items-center justify-between mb-6 border-b pb-4 ${darkMode ? 'border-white/5' : 'border-stone-200'}`}>
-                  <div className="flex items-center space-x-2">
-                    <h2 className={`text-xl font-bold uppercase tracking-wider ${darkMode ? 'text-white' : 'text-stone-900'}`}>Chapter List</h2>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   {chapters.length > 0 ? (
                     <>
@@ -1053,6 +1189,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   )}
                 </div>
               </section>
+              )}
             </div>
           </div>
         </div>

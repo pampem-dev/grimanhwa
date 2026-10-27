@@ -187,11 +187,13 @@ const MangaListItemSkeleton = () => (
 
 const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const { allManga, loading, backgroundLoading: contextBackgroundLoading, mangaDetails, fetchAllManga, sortManga } = useCollections();
+
   const [currentPage, setCurrentPage] = useState(() => {
     // Load current page from localStorage
     try {
       const saved = localStorage.getItem('collectionCurrentPage');
-      return saved ? parseInt(saved, 10) : 1;
+      const page = saved ? parseInt(saved, 10) : 1;
+      return page > 0 ? page : 1;
     } catch {
       return 1;
     }
@@ -235,6 +237,9 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const apiCache = useRef(new Map());
   const infoCache = useRef(new Map());
   const dropdownRef = useRef(null);
+  const savedPageRef = useRef(1); // Ref to persist page across unmounts
+  const prevSearchQueryRef = useRef('');
+  const prevSortByRef = useRef('---');
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -287,6 +292,20 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     const libraryKey = 'mangaLibrary';
     const savedLibrary = JSON.parse(localStorage.getItem(libraryKey) || '[]');
     setLibrary(savedLibrary);
+
+    // Restore page from localStorage on mount
+    try {
+      const savedPage = localStorage.getItem('collectionCurrentPage');
+      if (savedPage) {
+        const page = parseInt(savedPage, 10);
+        if (page > 0) {
+          savedPageRef.current = page;
+          setCurrentPage(page);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading page from localStorage:', err);
+    }
   }, []);
 
   // Sort options
@@ -447,9 +466,21 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
+      prevSearchQueryRef.current = searchQuery;
+      prevSortByRef.current = sortBy;
       return;
     }
-    setCurrentPage(1);
+    // Only reset if search or sort actually changed
+    if (searchQuery !== prevSearchQueryRef.current || sortBy !== prevSortByRef.current) {
+      setCurrentPage(1);
+      try {
+        localStorage.setItem('collectionCurrentPage', '1');
+        console.log('Reset page to 1 due to search/sort change');
+      } catch (err) {
+      }
+      prevSearchQueryRef.current = searchQuery;
+      prevSortByRef.current = sortBy;
+    }
   }, [searchQuery, sortBy]);
 
   // Update pagination when filtered results change
