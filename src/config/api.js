@@ -62,13 +62,17 @@ export const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
 
 // Specific API endpoints
 export const API_ENDPOINTS = {
-  // Manga endpoints
-  MANGA: (id) => createApiUrl(`api/kaynscan/manga/?id=${encodeURIComponent(id)}`),
-  LATEST_CHAPTER: (id) => createApiUrl(`api/kaynscan/latest-chapter/?id=${encodeURIComponent(id)}`),
+  // Database endpoints (fast, no scraping)
+  MANGA: (id) => createApiUrl(`api/manga-db/details/?id=${encodeURIComponent(id)}`),
+  LATEST_CHAPTER: (id) => createApiUrl(`api/manga-db/latest-chapter/?id=${encodeURIComponent(id)}`),
+  SEARCH: (query) => createApiUrl(`api/manga-db/search/?q=${encodeURIComponent(query)}`),
+  BROWSE_ALL: createApiUrl('api/manga-db/'),
+  MANGA_DB: createApiUrl('api/manga-db/'),
+
+  // Scraping endpoints (still needed for chapter pages)
   CHAPTER: (id) => createApiUrl(`api/kaynscan/chapter/${encodeURIComponent(id)}/`),
-  SEARCH: (query) => createApiUrl(`api/kaynscan/search/?q=${encodeURIComponent(query)}`),
-  BROWSE_ALL: createApiUrl('api/kaynscan/browse-all/'),
-  MANGA_DB: createApiUrl('api/manga-db/'), 
+
+  // User endpoints
   USER_COUNT: createApiUrl('api/user-count/'),
 
   // Cover image helper
