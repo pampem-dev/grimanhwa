@@ -1,6 +1,7 @@
 // Central API configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL;
-// const API_BASE_URL = 'http://10.7.5.7:8000/';
+// const API_BASE_URL = 'http://127.0.0.1:8000/';
+// const API_BASE_URL = 'http://10.7.5.3:8000/';
 
 
 // Export base URL and helper functions
@@ -67,6 +68,7 @@ export const API_ENDPOINTS = {
   CHAPTER: (id) => createApiUrl(`api/kaynscan/chapter/${encodeURIComponent(id)}/`),
   SEARCH: (query) => createApiUrl(`api/kaynscan/search/?q=${encodeURIComponent(query)}`),
   BROWSE_ALL: createApiUrl('api/kaynscan/browse-all/'),
+  MANGA_DB: createApiUrl('api/manga-db/'), 
   USER_COUNT: createApiUrl('api/user-count/'),
 
   // Cover image helper

@@ -637,11 +637,11 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     } else {
       // Navigate to the manhwa details page instead of going back in history
       if (mangaId) {
-        navigate(`/details/${encodeURIComponent(mangaId)}`);
+        navigate(`/manga/${encodeURIComponent(mangaId)}`);
       } else {
         // Extract mangaId from chapterId if not available
         const extractedMangaId = chapterId.replace(/\/chapter\/\d+$/i, '');
-        navigate(`/details/${encodeURIComponent(extractedMangaId)}`);
+        navigate(`/manga/${encodeURIComponent(extractedMangaId)}`);
       }
     }
   };

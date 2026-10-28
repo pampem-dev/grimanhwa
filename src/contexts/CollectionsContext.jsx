@@ -50,6 +50,12 @@ export const CollectionsProvider = ({ children }) => {
       case 'title-desc':
         sorted.sort((a, b) => b.title.localeCompare(a.title));
         break;
+      case 'chapters-desc':
+        sorted.sort((a, b) => (b.chapter_count || 0) - (a.chapter_count || 0));
+        break;
+      case 'chapters-asc':
+        sorted.sort((a, b) => (a.chapter_count || 0) - (b.chapter_count || 0));
+        break;
       case 'newest':
         sorted.sort((a, b) => (b.id || '').localeCompare(a.id || ''));
         break;
@@ -120,7 +126,7 @@ export const CollectionsProvider = ({ children }) => {
     setBackgroundLoading(false);
   };
 
-  // Fetch all manga
+  // Fetch all manga from database (instant)
   const fetchAllManga = useCallback(async (forceRefresh = false) => {
     if (loading && !forceRefresh) return;
 
@@ -132,13 +138,6 @@ export const CollectionsProvider = ({ children }) => {
       if (cached && !forceRefresh) {
         setAllManga(cached.allManga);
         setLoading(false);
-
-        // Resume background loading if cache incomplete
-        const currentPageCount = Math.ceil(cached.allManga.length / itemsPerPage);
-        if (currentPageCount < maxPages) {
-          setBackgroundLoading(true);
-          loadMorePagesRef.current(currentPageCount + 1, maxPages, cached.allManga, cacheKey);
-        }
         return;
       }
 
@@ -147,18 +146,15 @@ export const CollectionsProvider = ({ children }) => {
         setAllManga(cached.allManga);
       }
 
-      const startPage = 1;
-      let allMangaData = [];
-
-      const page1Url = `${API_URL}api/kaynscan/browse/?page=${startPage}`;
+      // Use database endpoint for instant results
+      const dbUrl = `${API_URL}api/manga-db/`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s for backend scraping
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      const response = await fetch(page1Url, {
+      const response = await fetch(dbUrl, {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         },
       });
 
@@ -166,6 +162,7 @@ export const CollectionsProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
+        let allMangaData = [];
 
         if (Array.isArray(data)) {
           allMangaData = data;
@@ -178,27 +175,21 @@ export const CollectionsProvider = ({ children }) => {
         setAllManga(allMangaData);
         setLoading(false);
 
-        // Cache the data
+        // Update cache
         const cacheData = {
           allManga: allMangaData,
           timestamp: Date.now(),
         };
         apiCache.current.set(cacheKey, cacheData);
         setPersistentCache(cacheKey, cacheData);
-
-        // Continue loading more pages in background
-        setBackgroundLoading(true);
-        loadMorePagesRef.current(startPage + 1, maxPages, allMangaData, cacheKey);
       } else {
-        setLoading(false);
+        throw new Error('Failed to fetch from database');
       }
     } catch (error) {
-      if (error.name === 'AbortError') {
-      } else {
-      }
+      console.error('Error fetching manga from database:', error);
       setLoading(false);
     }
-  }, [loading]);
+  }, [loading, cacheKey]);
 
   // Load manga details for current page - with latest_only optimization
   useEffect(() => {
