@@ -129,7 +129,21 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       if (response.ok) {
         const data = await response.json();
 
-        // Handle new latest_chapter format
+        // Handle direct chapter format (from database)
+        if (data.number && data.title) {
+          const chapterInfo = {
+            number: data.number,
+            title: data.title
+          };
+
+          // Cache in both memory and persistent storage
+          chapterCache.current.set(mangaId, chapterInfo);
+          setItemAsync(`mangaCache_chapter_${mangaId}`, { data: chapterInfo, timestamp: Date.now() });
+
+          return chapterInfo;
+        }
+
+        // Handle latest_chapter format (for backward compatibility)
         if (data.latest_chapter) {
           const chapterInfo = {
             number: extractChapterNumber(data.latest_chapter),
@@ -646,7 +660,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                       {cleanTitle(manga.title)}
                     </p>
                     <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {latestChapter ? `Chapter ${latestChapter.number}` : 'Chapter'}
+                      {latestChapter ? `Chapter ${latestChapter.number}` : 'Loading...'}
                     </p>
                   </div>
                 </div>
