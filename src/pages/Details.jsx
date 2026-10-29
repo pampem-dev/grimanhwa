@@ -832,13 +832,18 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   }
 
   const status = mangaDetails.status?.toLowerCase() || 'ongoing';
-  const statusStyles = status === 'completed'
+  const displayStatus = status === 'unknown' ? 'dropped' : status;
+  const statusStyles = displayStatus === 'completed'
     ? darkMode
       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
       : "bg-emerald-50 text-emerald-600 border-emerald-200"
-    : darkMode
-      ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-      : "bg-blue-50 text-blue-600 border-blue-200";
+    : displayStatus === 'dropped'
+      ? darkMode
+        ? "bg-red-500/10 text-red-400 border-red-500/20"
+        : "bg-red-50 text-red-600 border-red-200"
+      : darkMode
+        ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+        : "bg-blue-50 text-blue-600 border-blue-200";
 
   return (
     <div className={`min-h-screen p-6 sm:p-10 pb-24 lg:pb-10 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#FAFAF8] text-stone-900'}`}>
@@ -882,7 +887,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                 {/* Status Badge */}
                 <div className="mt-2">
                   <span className={`text-xs px-3 py-1.5 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
-                    {status}
+                    {displayStatus}
                   </span>
                 </div>
               </header>
@@ -957,7 +962,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
               {/* Status Badge */}
               <div className="mt-3">
                 <span className={`text-xs px-3 py-1.5 rounded-md border font-bold uppercase tracking-tight ${statusStyles}`}>
-                  {status}
+                  {displayStatus}
                 </span>
               </div>
             </header>
