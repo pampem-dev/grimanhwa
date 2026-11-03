@@ -516,7 +516,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     }
 
     // Only show loading if we have no data at all
-    if (!cached && (!manga.chapters || manga.chapters.length === 0)) {
+    if (!manga.chapters || manga.chapters.length === 0) {
       setLoading(true);
     }
 
