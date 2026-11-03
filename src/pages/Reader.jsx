@@ -732,7 +732,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     if (onNavigate) {
       onNavigate(nextChapterId);
     } else {
-      navigate(`/reader/${encodeURIComponent(nextChapterId)}`);
+      navigate(`/reader/${encodeURIComponent(nextChapterId)}?manga=${encodeURIComponent(mangaId || '')}`, { replace: true });
     }
   };
 
