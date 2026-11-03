@@ -70,32 +70,14 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       return;
     }
 
-    // Fetch manga from collections
+    // Fetch manga from database
     const fetchMangaFromCollections = async () => {
       try {
-        const response = await fetch(API_ENDPOINTS.BROWSE_ALL);
+        const response = await fetch(API_ENDPOINTS.MANGA(mangaId));
         if (response.ok) {
           const data = await response.json();
-
-          // Handle different response formats
-          let allManga = [];
-          if (Array.isArray(data)) {
-            allManga = data;
-          } else if (data && Array.isArray(data.manga)) {
-            allManga = data.manga;
-          } else if (data && Array.isArray(data.results)) {
-            allManga = data.results;
-          } else {
-            return;
-          }
-
-          const foundManga = allManga.find(m => m.id === decodeURIComponent(mangaId));
-
-          if (foundManga) {
-            setManga(foundManga);
-            setMangaDetails(foundManga);
-          } else {
-          }
+          setManga(data);
+          setMangaDetails(data);
         }
       } catch (error) {
       }
