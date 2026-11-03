@@ -495,28 +495,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     if (manga.chapters && manga.chapters.length > 0) {
       setChapters(manga.chapters);
       setLoading(false);
-
-      // Cache the existing data
-      writeDetailsCache(manga.id, {
-        description: manga.description || '',
-        status: manga.status || '',
-        chapters: manga.chapters
-      });
-      return;
-    }
-
-    // Only check cache if no existing data
-    const cached = readDetailsCache(manga.id);
-    if (cached) {
-      setMangaDetails((prev) => ({
-        ...prev,
-        description: cached.description || prev.description,
-        status: cached.status || prev.status,
-        alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
-      }));
-      const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
-      setChapters(cachedChapters);
-      setLoading(false);
       return;
     }
 
@@ -524,33 +502,9 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   }, [manga]);
 
   const fetchChapters = async (forceRefresh = false) => {
-    const cached = readDetailsCache(manga.id);
-    if (cached && !forceRefresh) {
-      setMangaDetails((prev) => ({
-        ...prev,
-        description: cached.description || prev.description,
-        status: cached.status || prev.status,
-        alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
-      }));
-      // Handle both old format (array) and new format (object)
-      const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
-      setChapters(sortChapters(cachedChapters));
-      setLoading(false);
-      return;
-    }
-
-    // Show cached data immediately while fetching fresh data in background
-    if (cached && forceRefresh) {
-      const cachedChapters = Array.isArray(cached) ? cached : cached.chapters || [];
-      setChapters(sortChapters(cachedChapters));
-      setMangaDetails((prev) => ({
-        ...prev,
-        description: cached.description || prev.description,
-        status: cached.status || prev.status,
-        alternative_titles: cached.alternative_titles || prev.alternative_titles || [],
-      }));
-      setLoading(false); // Don't show loading state
-      setIsBackgroundRefreshing(true); // Show subtle refresh indicator
+    // Show loading if refreshing
+    if (forceRefresh) {
+      setLoading(true);
     }
 
     // OPTIMIZATION: Check if we already have chapters from Home page navigation
@@ -558,13 +512,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       const sorted = sortChapters(manga.chapters);
       setChapters(sorted);
       setLoading(false);
-
-      // Cache the existing data for future use
-      writeDetailsCache(manga.id, {
-        description: manga.description || '',
-        status: manga.status || '',
-        chapters: sorted
-      });
       return;
     }
 
@@ -632,30 +579,9 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         });
         const sorted = sortChapters(uniqueChapters);
         setChapters(sorted);
-
-        writeDetailsCache(manga.id, {
-          description: description,
-          status: status,
-          chapters: sorted,
-          alternative_titles: alternative_titles,
-        });
       }
     } catch (err) {
 
-      // FALLBACK: Try to use any cached data even if expired
-      const fallbackCache = readDetailsCache(manga.id, true); // Ignore TTL
-      if (fallbackCache) {
-        const fallbackChapters = Array.isArray(fallbackCache) ? fallbackCache : fallbackCache.chapters || [];
-        if (fallbackChapters.length > 0) {
-          setChapters(sortChapters(fallbackChapters));
-          setMangaDetails(prev => ({
-            ...prev,
-            description: fallbackCache.description || prev.description,
-            status: fallbackCache.status || prev.status,
-            alternative_titles: fallbackCache.alternative_titles || prev.alternative_titles || [],
-          }));
-        }
-      }
       if (!chapters.length) {
         // If no cache at all, show empty state instead of infinite loading
         setChapters([]);
