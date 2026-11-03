@@ -243,61 +243,65 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     try {
       const apiUrl = API_ENDPOINTS.CHAPTER(id);
 
-      const response = await fetchWithRetry(apiUrl, { 
+      // Chunked loading: First fetch with limit=3 for fast initial display
+      const initialUrl = `${apiUrl}?limit=3`;
+      const response = await fetchWithRetry(initialUrl, {
         signal: abortControllerRef.current?.signal,
-        noRetry: true // Disable retries to avoid duplicate fetches on connection errors
+        noRetry: true
       });
-      
+
       if (!response.ok) throw new Error(`Status: ${response.status}`);
 
       const data = await response.json();
 
-      // Filter out false positives - real chapters should have at least 5 pages
-      const MIN_PAGES_THRESHOLD = 5;
+      // Filter out false positives - real chapters should have at least 3 pages for initial load
+      const MIN_PAGES_THRESHOLD = 3;
       if (data.pages?.length >= MIN_PAGES_THRESHOLD) {
         const chapterNum = getChapterNumber(id);
 
-        // Progressive loading: first 5 pages immediately, then the rest
-        const firstPages = data.pages.slice(0, 5);
-        const remainingPages = data.pages.slice(5);
+        // Display first 3 pages immediately
+        const firstPages = data.pages;
+        const remainingPages = [];
 
         // Check if chapter already exists to prevent duplicates
         const chapterExists = chapters.some(ch => ch.id === id);
 
         if (!chapterExists) {
-          // Load first 5 pages immediately for fast display
+          // Load first 3 pages immediately for fast display
           setChapters((prev) => {
-            // Double-check within the functional update to prevent race conditions
-            if (prev.some(ch => ch.id === id)) {
-              return prev; // Don't add if already exists
-            }
+            if (prev.some(ch => ch.id === id)) return prev;
             const newChapter = { id, pages: firstPages, chapterNum };
             if (insertAtStart) {
-              // Insert at the beginning for previous chapters
               return [newChapter, ...prev];
             }
             return [...prev, newChapter];
           });
           setLoadedIds((prev) => new Set(prev).add(id));
-          writeChapterCache(id, { pages: data.pages, chapterNum });
         }
 
-        // Load remaining pages after a short delay (non-blocking)
-        if (remainingPages.length > 0) {
-          setTimeout(() => {
-            // Check if request should be cancelled (chapter changed)
-            if (abortControllerRef.current?.signal.aborted) {
-              return;
+        // Fetch remaining pages in background after initial display
+        setTimeout(async () => {
+          if (abortControllerRef.current?.signal.aborted) return;
+
+          try {
+            const fullResponse = await fetchWithRetry(apiUrl, {
+              signal: abortControllerRef.current?.signal,
+              noRetry: true
+            });
+
+            if (fullResponse.ok) {
+              const fullData = await fullResponse.json();
+              if (fullData.pages?.length > 3) {
+                setChapters((prev) => prev.map(ch =>
+                  ch.id === id ? { ...ch, pages: fullData.pages } : ch
+                ));
+                writeChapterCache(id, { pages: fullData.pages, chapterNum });
+              }
             }
-
-            setChapters((prev) => prev.map(ch =>
-              ch.id === id
-                ? { ...ch, pages: data.pages }
-                : ch
-            ));
-            writeChapterCache(id, { pages: data.pages, chapterNum });
-          }, 200); // Reduced to 200ms for faster progressive loading
-        }
+          } catch (err) {
+            // Ignore errors for background fetch
+          }
+        }, 1000); // Start fetching remaining pages after 1 second
 
         // Reset hasReachedEnd when we successfully load a chapter
         if (!isPreload) {
