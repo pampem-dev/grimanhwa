@@ -24,7 +24,7 @@ const HeroCarousel = React.memo(({ manga, onMangaClick, isLoading = false }) => 
 
   // Extract rating from title if not present
   const extractRating = (item) => {
-    if (item.rating) return item.rating;
+    if (item.rating !== null && item.rating !== undefined) return item.rating;
     if (!item.title) return 'N/A';
     const match = item.title.match(/^(\d+\.\d+)/);
     return match ? match[1] : 'N/A';
