@@ -26,33 +26,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
 
-  // Cache for API responses
-  const apiCache = useRef(new Map());
-  const chapterCache = useRef(new Map());
-
-  // Persistent cache functions
-  const getPersistentCache = (key) => {
-    try {
-      const cached = getItem(`mangaCache_${key}`);
-      if (cached) {
-        // Check if cache is still valid (30 minutes)
-        if (Date.now() - cached.timestamp < 30 * 60 * 1000) {
-          return cached;
-        }
-      }
-    } catch (err) {
-    }
-    return null;
-  };
-
-  const setPersistentCache = (key, data) => {
-    const cacheData = {
-      ...data,
-      timestamp: Date.now()
-    };
-    setItemAsync(`mangaCache_${key}`, cacheData);
-  };
-
   const resetAutoPlay = () => {
     setIsAutoPlaying(false);
     setTimeout(() => setIsAutoPlaying(true), 100);
@@ -101,21 +74,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
 
 
-  // Optimized chapter fetching with persistent caching
+  // Optimized chapter fetching
   const fetchLatestChapter = async (mangaId) => {
-    // Check memory cache first
-    if (chapterCache.current.has(mangaId)) {
-      return chapterCache.current.get(mangaId);
-    }
-
-    // Check persistent cache
-    const persistentCache = getItem(`mangaCache_chapter_${mangaId}`);
-    if (persistentCache && Date.now() - persistentCache.timestamp < 30 * 60 * 1000) {
-      // Also store in memory cache for this session
-      chapterCache.current.set(mangaId, persistentCache.data);
-      return persistentCache.data;
-    }
-
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
@@ -131,30 +91,18 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
         // Handle direct chapter format (from database)
         if (data.number && data.title) {
-          const chapterInfo = {
+          return {
             number: data.number,
             title: data.title
           };
-
-          // Cache in both memory and persistent storage
-          chapterCache.current.set(mangaId, chapterInfo);
-          setItemAsync(`mangaCache_chapter_${mangaId}`, { data: chapterInfo, timestamp: Date.now() });
-
-          return chapterInfo;
         }
 
         // Handle latest_chapter format (for backward compatibility)
         if (data.latest_chapter) {
-          const chapterInfo = {
+          return {
             number: extractChapterNumber(data.latest_chapter),
             title: data.latest_chapter.title || `Chapter ${extractChapterNumber(data.latest_chapter)}`
           };
-
-          // Cache in both memory and persistent storage
-          chapterCache.current.set(mangaId, chapterInfo);
-          setItemAsync(`mangaCache_chapter_${mangaId}`, { data: chapterInfo, timestamp: Date.now() });
-
-          return chapterInfo;
         }
 
         // Fallback to old format (array) for backward compatibility
@@ -180,16 +128,10 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
             }
           });
 
-          const chapterInfo = {
+          return {
             number: extractChapterNumber(latestChapter),
             title: latestChapter.title || `Chapter ${extractChapterNumber(latestChapter)}`
           };
-
-          // Cache in both memory and persistent storage
-          chapterCache.current.set(mangaId, chapterInfo);
-          setItemAsync(`mangaCache_chapter_${mangaId}`, { data: chapterInfo, timestamp: Date.now() });
-
-          return chapterInfo;
         }
       }
     } catch (err) {
@@ -368,85 +310,15 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItems.length, loadingRecent]);
 
-  // Optimized fetchAllManga with persistent caching and error handling
-  const fetchAllManga = useCallback(async (forceRefresh = false) => {
-    const cacheKey = 'allManga_v2'; // Updated cache key to invalidate old cache
-    
-    // Always show cached data immediately if available (even during refresh)
-    const persistentCache = getPersistentCache(cacheKey);
-    if (persistentCache) {
-      const { allManga, featured, trending, recent, topRated } = persistentCache;
-
-      // Filter out chapter-specific entries from cached data
-      const mangaOnly = allManga.filter(item => {
-        const title = item.title || '';
-        return !title.match(/^chapter\s*\d+/i) &&
-               !title.match(/\d+\s*(hours?|days?|weeks?|months?)\s+ago/i) &&
-               !title.match(/last\s+(hour|day|week|month)/i);
-      });
-
-      // Remove duplicates from cached data (by ID only)
-      const seenIds = new Set();
-      const uniqueAllManga = mangaOnly.filter(item => {
-        if (item.id && seenIds.has(item.id)) {
-          return false;
-        }
-        if (item.id) {
-          seenIds.add(item.id);
-        }
-        return true;
-      });
-
-      setAllMangaList(uniqueAllManga);
-      setFeaturedManga(featured);
-      setTrendingManga(trending);
-      setRecentManga(recent);
-      // If topRated is in cache, use it. Otherwise, sort by rating
-      if (topRated) {
-        setTopRatedManga(topRated);
-      } else {
-        // Sort by rating and take top 10
-        const sortedByRating = [...uniqueAllManga].sort((a, b) => {
-          const ratingA = a.rating || 0;
-          const ratingB = b.rating || 0;
-          return ratingB - ratingA;
-        });
-        setTopRatedManga(sortedByRating.slice(0, 10));
-      }
-      
-      // Also store in memory cache for this session
-      apiCache.current.set(cacheKey, persistentCache);
-      
-      setLoadingTrending(false);
-      setLoadingRecent(false);
-      setLoadingPopular(false);
-      setLoadingTopRated(false);
-      
-      // Load cached chapters
-      const cachedChapters = {};
-      Object.keys(latestChapters).forEach(mangaId => {
-        const chapterCache = getPersistentCache(`chapter_${mangaId}`);
-        if (chapterCache) {
-          cachedChapters[mangaId] = chapterCache.data;
-        }
-      });
-      if (Object.keys(cachedChapters).length > 0) {
-        setLatestChapters(cachedChapters);
-      }
-      
-      // If not force refresh, return early (showing cached data)
-      if (!forceRefresh) return;
-    }
-
-    // Fetch fresh data in background (only if force refresh or no cache)
+  // Optimized fetchAllManga with error handling
+  const fetchAllManga = useCallback(async () => {
     try {
       setFetchError(null);
-      if (forceRefresh) setIsRefreshing(true);
+      setIsRefreshing(true);
       
       // Always use backend API from environment
       const apiUrl = API_ENDPOINTS.SEARCH('a');
       
-      // Reduced timeout to fail faster and show cached data
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
@@ -488,7 +360,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           return true;
         });
 
-
         // Store all manga for pagination
         setAllMangaList(uniqueManga);
 
@@ -526,18 +397,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         setRecentManga(recent);
         setTopRatedManga(topRated);
         
-        // Cache the processed data in both memory and persistent storage
-        const cacheData = {
-          allManga: uniqueManga,
-          featured,
-          trending,
-          recent,
-          topRated,
-          timestamp: Date.now()
-        };
-        apiCache.current.set(cacheKey, cacheData);
-        setPersistentCache(cacheKey, cacheData);
-        
         setLoadingTrending(false);
         setLoadingRecent(false);
         setLoadingPopular(false);
@@ -546,10 +405,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         throw new Error(`API request failed: ${response.status}`);
       }
     } catch (err) {
-      // If we have cached data, don't show error - just use cached
-      if (!persistentCache) {
-        setFetchError(err.message);
-      }
+      setFetchError(err.message);
       setLoadingTrending(false);
       setLoadingRecent(false);
       setLoadingPopular(false);
@@ -561,23 +417,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   // Refresh function
   const handleRefresh = useCallback(() => {
-    // Clear all caches (both memory and persistent)
-    apiCache.current.clear();
-    chapterCache.current.clear();
-
-    // Clear persistent cache keys
-    try {
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('mangaCache_')) {
-          localStorage.removeItem(key);
-        }
-      });
-    } catch (err) {
-    }
-
     setLatestChapters({});
-    // Force refresh
-    fetchAllManga(true);
+    fetchAllManga();
   }, [fetchAllManga]);
 
   useEffect(() => {

@@ -16,29 +16,9 @@ export const CollectionsProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [backgroundLoading, setBackgroundLoading] = useState(false);
   const [mangaDetails, setMangaDetails] = useState({});
-  const apiCache = useRef(new Map());
 
-  const cacheKey = 'allManga';
   const maxPages = 20;
   const itemsPerPage = 20;
-
-  // Get persistent cache from localStorage
-  const getPersistentCache = (key) => {
-    try {
-      const cached = localStorage.getItem(key);
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  // Set persistent cache to localStorage
-  const setPersistentCache = (key, data) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-    } catch (err) {
-    }
-  };
 
   // Sort function
   const sortManga = (mangaList, sortBy) => {
@@ -68,7 +48,7 @@ export const CollectionsProvider = ({ children }) => {
   // Function to load remaining pages in background
   const loadMorePagesRef = useRef(null);
 
-  loadMorePagesRef.current = async (startPage, endPage, existingData, cacheKey) => {
+  loadMorePagesRef.current = async (startPage, endPage, existingData) => {
     let mangaData = [...existingData];
 
     for (let page = startPage; page <= endPage; page++) {
@@ -105,14 +85,6 @@ export const CollectionsProvider = ({ children }) => {
         if (pageManga.length > 0) {
           mangaData = [...mangaData, ...pageManga];
           setAllManga([...mangaData]);
-
-          // Update cache with new data
-          const cacheData = {
-            allManga: mangaData,
-            timestamp: Date.now(),
-          };
-          apiCache.current.set(cacheKey, cacheData);
-          setPersistentCache(cacheKey, cacheData);
         }
 
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -133,23 +105,10 @@ export const CollectionsProvider = ({ children }) => {
     setLoading(true);
 
     try {
-      // Check cache first
-      const cached = apiCache.current.get(cacheKey) || getPersistentCache(cacheKey);
-      if (cached && !forceRefresh) {
-        setAllManga(cached.allManga);
-        setLoading(false);
-        return;
-      }
-
-      // Show cached data while fetching fresh data
-      if (cached && forceRefresh) {
-        setAllManga(cached.allManga);
-      }
-
       // Use database endpoint for instant results
       const dbUrl = `${API_URL}api/manga-db/`;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(dbUrl, {
         signal: controller.signal,
@@ -174,14 +133,6 @@ export const CollectionsProvider = ({ children }) => {
 
         setAllManga(allMangaData);
         setLoading(false);
-
-        // Update cache
-        const cacheData = {
-          allManga: allMangaData,
-          timestamp: Date.now(),
-        };
-        apiCache.current.set(cacheKey, cacheData);
-        setPersistentCache(cacheKey, cacheData);
       } else {
         throw new Error('Failed to fetch from database');
       }
@@ -189,9 +140,9 @@ export const CollectionsProvider = ({ children }) => {
       console.error('Error fetching manga from database:', error);
       setLoading(false);
     }
-  }, [loading, cacheKey]);
+  }, [loading]);
 
-  // Load manga details for current page - with latest_only optimization
+  // Load manga details for current page
   useEffect(() => {
     if (!allManga.length) return;
 
@@ -203,17 +154,9 @@ export const CollectionsProvider = ({ children }) => {
         const batch = allManga.slice(i, i + batchSize);
         const promises = batch.map(async (manga) => {
           try {
-            const infoKey = `info_${manga.id}`;
-            const cachedInfo = localStorage.getItem(infoKey);
-            if (cachedInfo) {
-              return { mangaId: manga.id, info: JSON.parse(cachedInfo) };
-            }
-
-            // Use the dedicated latest chapter endpoint for faster loading
             const response = await fetch(`${API_URL}api/kaynscan/latest-chapter/?id=${encodeURIComponent(manga.id)}`);
             if (response.ok) {
               const info = await response.json();
-              localStorage.setItem(infoKey, JSON.stringify(info));
               return { mangaId: manga.id, info };
             }
           } catch (error) {

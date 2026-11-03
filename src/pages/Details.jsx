@@ -21,47 +21,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   // Swipe state
   const [swipeState, setSwipeState] = useState({ chapterId: null, startX: 0, translateX: 0 });
 
-  const DETAILS_CACHE_TTL_MS = 60 * 60 * 1000;
 
-  const getDetailsCacheKey = (mangaId) => `detailsCache_${mangaId}`;
-
-  const readDetailsCache = (mangaId) => {
-    if (!mangaId) return null;
-    try {
-      const raw = localStorage.getItem(getDetailsCacheKey(mangaId));
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed.timestamp !== 'number') return null;
-      if (Date.now() - parsed.timestamp > DETAILS_CACHE_TTL_MS) return null;
-      if (!Array.isArray(parsed.chapters)) return null;
-      return {
-        description: parsed.description,
-        status: parsed.status,
-        chapters: parsed.chapters,
-        alternative_titles: parsed.alternative_titles || [],
-      };
-    } catch {
-      return null;
-    }
-  };
-
-  const writeDetailsCache = (mangaId, payload) => {
-    if (!mangaId || !payload?.chapters) return;
-    try {
-      localStorage.setItem(
-        getDetailsCacheKey(mangaId),
-        JSON.stringify({
-          description: payload.description,
-          status: payload.status,
-          chapters: payload.chapters,
-          alternative_titles: payload.alternative_titles || [],
-          timestamp: Date.now(),
-        })
-      );
-    } catch {
-      // ignore quota / serialization issues
-    }
-  };
 
   // Load read chapters from localStorage on mount
   useEffect(() => {
@@ -102,7 +62,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     setIsInLibrary(inLibrary);
   }, [manga?.id]);
 
-  // Fetch manga data - optimized to use localStorage cache
+  // Fetch manga data
   useEffect(() => {
     if (propManga) {
       setManga(propManga);
@@ -110,25 +70,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       return;
     }
 
-    // Try to get manga from localStorage cache first
-    const cachedMangaKey = `cached_manga_${mangaId}`;
-    const cachedManga = localStorage.getItem(cachedMangaKey);
-
-    if (cachedManga) {
-      try {
-        const parsedManga = JSON.parse(cachedManga);
-        // Check if cache is still valid (24 hours)
-        const cacheAge = Date.now() - parsedManga.timestamp;
-        if (cacheAge < 24 * 60 * 60 * 1000) {
-          setManga(parsedManga.data);
-          setMangaDetails(parsedManga.data);
-          return;
-        }
-      } catch (err) {
-      }
-    }
-
-    // Fetch manga from collections if not in cache
+    // Fetch manga from collections
     const fetchMangaFromCollections = async () => {
       try {
         const response = await fetch(API_ENDPOINTS.BROWSE_ALL);
@@ -152,11 +94,6 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
           if (foundManga) {
             setManga(foundManga);
             setMangaDetails(foundManga);
-            // Cache the found manga for future use
-            localStorage.setItem(cachedMangaKey, JSON.stringify({
-              data: foundManga,
-              timestamp: Date.now()
-            }));
           } else {
           }
         }
