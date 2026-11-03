@@ -243,8 +243,8 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     try {
       const apiUrl = API_ENDPOINTS.CHAPTER(id);
 
-      // Chunked loading: First fetch with limit=3 for fast initial display
-      const initialUrl = `${apiUrl}?limit=3`;
+      // Chunked loading: First fetch with limit=5 for fast initial display
+      const initialUrl = `${apiUrl}?limit=5`;
       const response = await fetchWithRetry(initialUrl, {
         signal: abortControllerRef.current?.signal,
         noRetry: true
@@ -254,12 +254,12 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
       const data = await response.json();
 
-      // Filter out false positives - real chapters should have at least 3 pages for initial load
-      const MIN_PAGES_THRESHOLD = 3;
+      // Filter out false positives - real chapters should have at least 5 pages for initial load
+      const MIN_PAGES_THRESHOLD = 5;
       if (data.pages?.length >= MIN_PAGES_THRESHOLD) {
         const chapterNum = getChapterNumber(id);
 
-        // Display first 3 pages immediately
+        // Display first 5 pages immediately
         const firstPages = data.pages;
         const remainingPages = [];
 
@@ -291,7 +291,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
             if (fullResponse.ok) {
               const fullData = await fullResponse.json();
-              if (fullData.pages?.length > 3) {
+              if (fullData.pages?.length > 5) {
                 setChapters((prev) => prev.map(ch =>
                   ch.id === id ? { ...ch, pages: fullData.pages } : ch
                 ));
