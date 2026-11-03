@@ -65,6 +65,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   const [isDraggingSlider, setIsDraggingSlider] = useState(false);
   const [showChapterDropdown, setShowChapterDropdown] = useState(false); // Chapter dropdown visibility
   const [allChapters, setAllChapters] = useState([]); // All available chapters for dropdown
+  const [isLoadingFullPages, setIsLoadingFullPages] = useState({}); // Track which chapters are loading full pages
 
   const scrollContainerRef = useRef(null);
   const observerTarget = useRef(null);
@@ -280,6 +281,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         }
 
         // Fetch remaining pages in background after initial display
+        setIsLoadingFullPages(prev => ({ ...prev, [id]: true }));
         setTimeout(async () => {
           if (abortControllerRef.current?.signal.aborted) return;
 
@@ -291,7 +293,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
             if (fullResponse.ok) {
               const fullData = await fullResponse.json();
-              if (fullData.pages?.length > 5) {
+              if (fullData.pages?.length > 0) {
                 setChapters((prev) => prev.map(ch =>
                   ch.id === id ? { ...ch, pages: fullData.pages } : ch
                 ));
@@ -300,6 +302,8 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
             }
           } catch (err) {
             // Ignore errors for background fetch
+          } finally {
+            setIsLoadingFullPages(prev => ({ ...prev, [id]: false }));
           }
         }, 1000); // Start fetching remaining pages after 1 second
 
@@ -945,6 +949,8 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                 <span className="text-sm font-semibold text-gray-300 w-12">
                   {(() => {
                     const activeChapter = chapters.find(ch => ch.id === (visiblePage.chapterId || activeChapterId));
+                    const isLoading = isLoadingFullPages[activeChapter?.id];
+                    if (isLoading) return 'Loading...';
                     return activeChapter?.pages.length || 1;
                   })()}
                 </span>
