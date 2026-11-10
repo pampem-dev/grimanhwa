@@ -43,7 +43,7 @@ const cleanTitle = (title) => {
 };
 
 // Separate components for better performance
-const MangaCard = React.memo(({ manga, onClick, imageObserver, toggleLibrary, isInLibrary }) => {
+const MangaCard = React.memo(({ manga, onClick, imageObserver, toggleLibrary, isInLibrary, hideLabel = false }) => {
   const imgRef = useRef(null);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ const MangaCard = React.memo(({ manga, onClick, imageObserver, toggleLibrary, is
   };
 
   return (
-    <div className="cursor-pointer group" onClick={onClick}>
+    <div className={`cursor-pointer group transition-transform duration-300 ease-out ${hideLabel ? 'scale-[1.03] origin-top' : ''}`} onClick={onClick}>
       <div className="relative overflow-hidden rounded-xl">
         <img
           ref={imgRef}
@@ -93,7 +93,7 @@ const MangaCard = React.memo(({ manga, onClick, imageObserver, toggleLibrary, is
           />
         </button>
       </div>
-      <div className="mt-2 text-center">
+      <div className={`text-center overflow-hidden transition-all duration-300 ease-out ${hideLabel ? 'opacity-0 max-h-0 mt-0' : 'opacity-100 max-h-10 mt-2'}`}>
         <h3 className="text-sm font-bold uppercase tracking-tight truncate text-white group-hover:text-blue-400 transition-colors">
           {manga._cleanTitle || cleanTitle(manga.title)}
         </h3>
@@ -230,6 +230,14 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
   const [library, setLibrary] = useState([]); // Track library manga
+  const [hideLabels, setHideLabels] = useState(() => {
+    // iOS-style icon-only mode (no titles under covers)
+    try {
+      return localStorage.getItem('collectionHideLabels') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Cache for API responses (still needed for manga info)
   const apiCache = useRef(new Map());
@@ -281,6 +289,14 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
     } catch (err) {
     }
   }, [searchQuery]);
+
+  // Save hide-labels preference to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('collectionHideLabels', hideLabels.toString());
+    } catch (err) {
+    }
+  }, [hideLabels]);
 
   // Load library from localStorage on mount
   useEffect(() => {
@@ -657,6 +673,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
             imageObserver={imageObserverRef.current}
             toggleLibrary={toggleLibrary}
             isInLibrary={isInLibrary}
+            hideLabel={hideLabels}
           />
         ))}
         {/* Show skeleton loading if page is still loading */}
@@ -840,6 +857,32 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
                 <List size={16} />
               </button>
             </div>
+
+            {/* Hide labels toggle (icon-only mode) */}
+            <button
+              onClick={() => setHideLabels(!hideLabels)}
+              disabled={viewMode !== 'grid'}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border transition-all duration-200 ${
+                viewMode !== 'grid'
+                  ? 'bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed'
+                  : hideLabels
+                    ? 'bg-blue-500/15 border-blue-500/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
+              }`}
+            >
+              <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                hideLabels && viewMode === 'grid' ? 'bg-blue-500' : 'bg-white/15'
+              }`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                  hideLabels && viewMode === 'grid' ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </span>
+              <span className={`text-sm font-medium transition-colors ${
+                hideLabels && viewMode === 'grid' ? 'text-white' : 'text-gray-400'
+              }`}>
+                Hide Title
+              </span>
+            </button>
           </div>
         </div>
 

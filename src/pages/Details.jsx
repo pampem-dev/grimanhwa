@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight, ChevronDown } from 'lucide-react';
+import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight, ChevronDown, Check, CheckCheck, ListChecks, X } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -20,6 +20,13 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   
   // Swipe state
   const [swipeState, setSwipeState] = useState({ chapterId: null, startX: 0, translateX: 0 });
+
+  // Chapter selection mode (batch mark read/unread)
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedChapters, setSelectedChapters] = useState(new Set());
+  const pressTimerRef = useRef(null);
+  const pressStartPosRef = useRef(null);
+  const suppressClickRef = useRef(false);
 
 
 
@@ -199,8 +206,75 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     });
   };
 
+  // --- Chapter selection mode ---
+  const toggleChapterSelection = (chapterId) => {
+    setSelectedChapters(prev => {
+      const next = new Set(prev);
+      if (next.has(chapterId)) {
+        next.delete(chapterId);
+      } else {
+        next.add(chapterId);
+      }
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedChapters(new Set());
+  };
+
+  const selectAllChapters = () => {
+    setSelectedChapters(new Set(chapters.map(c => c.id)));
+  };
+
+  // Long-press handlers: hold a chapter to enter selection mode
+  const handlePressStart = (e, chapter) => {
+    if (isSelectionMode) return;
+    const point = e.touches ? e.touches[0] : e;
+    pressStartPosRef.current = { x: point.clientX, y: point.clientY };
+    pressTimerRef.current = setTimeout(() => {
+      suppressClickRef.current = true;
+      setIsSelectionMode(true);
+      setSelectedChapters(new Set([chapter.id]));
+    }, 500);
+  };
+
+  const handlePressMove = (e) => {
+    if (!pressTimerRef.current || !pressStartPosRef.current) return;
+    const point = e.touches ? e.touches[0] : e;
+    const dx = Math.abs(point.clientX - pressStartPosRef.current.x);
+    const dy = Math.abs(point.clientY - pressStartPosRef.current.y);
+    if (dx > 10 || dy > 10) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+
+  const handlePressEnd = () => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+    pressStartPosRef.current = null;
+  };
+
+  const applySelectionReadStatus = (markAsRead) => {
+    if (!manga?.id || selectedChapters.size === 0) return;
+
+    const readChaptersKey = `manga_read_chapters_${manga.id}`;
+    const existing = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+    const updated = markAsRead
+      ? [...new Set([...existing, ...selectedChapters])]
+      : existing.filter(id => !selectedChapters.has(id));
+
+    localStorage.setItem(readChaptersKey, JSON.stringify(updated));
+    setReadChapters(new Set(updated));
+  };
+
   // Swipe handlers (only right swipe)
   const handleTouchStart = (e, chapterId) => {
+    if (isSelectionMode) return;
     const touch = e.touches[0];
     setSwipeState({
       chapterId,
@@ -509,7 +583,7 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
       );
 
       const response = await Promise.race([
-        fetch(`${API_ENDPOINTS.MANGA(manga.id)}${forceRefresh ? '?refresh=true' : ''}`),
+        fetch(`${API_ENDPOINTS.MANGA(manga.id)}${forceRefresh ? '&force_refresh=true' : ''}`),
         timeoutPromise
       ]);
       if (response.ok) {
@@ -690,8 +764,67 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
         : "bg-blue-50 text-blue-600 border-blue-200";
 
+  // Contextual selection actions: hide irrelevant mark read/unread
+  const selectedIdList = [...selectedChapters];
+  const allSelectedRead = selectedIdList.length > 0 && selectedIdList.every(id => readChapters.has(id));
+  const allSelectedUnread = selectedIdList.length > 0 && selectedIdList.every(id => !readChapters.has(id));
+  const showMarkRead = !allSelectedRead;
+  const showMarkUnread = !allSelectedUnread;
+
   return (
-    <div className={`min-h-screen p-6 sm:p-10 pb-24 lg:pb-10 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#FAFAF8] text-stone-900'}`}>
+    <div
+      className={`min-h-screen p-6 sm:p-10 pb-24 lg:pb-10 ${darkMode ? 'bg-[#050505] text-white' : 'bg-[#FAFAF8] text-stone-900'}`}
+      style={isSelectionMode ? { paddingTop: '5rem' } : undefined}
+    >
+      {/* Floating selection navbar */}
+      {isSelectionMode && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-[pillIn_0.28s_cubic-bezier(0.34,1.56,0.64,1)]">
+          <style>{`@keyframes pillIn { 0% { transform: translate(-50%, -16px) scale(0.85); opacity: 0; } 60% { transform: translate(-50%, 2px) scale(1.03); opacity: 1; } 100% { transform: translate(-50%, 0) scale(1); opacity: 1; } }`}</style>
+          <div className="flex items-center gap-1.5 px-3 py-3 rounded-full bg-black/80 backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/50">
+            <button
+              onClick={selectAllChapters}
+              title="Select all"
+              className="p-3 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <ListChecks size={20} />
+            </button>
+            {showMarkRead && (
+              <button
+                onClick={() => { applySelectionReadStatus(true); exitSelectionMode(); }}
+                disabled={selectedChapters.size === 0}
+                title="Mark as read"
+                className="p-3 rounded-full text-green-400 hover:bg-green-500/20 transition-colors disabled:opacity-40"
+              >
+                <CheckCheck size={20} />
+              </button>
+            )}
+            {showMarkUnread && (
+              <button
+                onClick={() => { applySelectionReadStatus(false); exitSelectionMode(); }}
+                disabled={selectedChapters.size === 0}
+                title="Mark as unread"
+                className="p-3 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-40"
+              >
+                <span className="relative inline-flex items-center justify-center">
+                  <CheckCheck size={20} />
+                  <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="w-[24px] h-[2px] bg-red-400 rounded-full" style={{ transform: 'rotate(-20deg)' }} />
+                  </span>
+                </span>
+              </button>
+            )}
+            <div className="w-px h-6 bg-white/15 mx-1" />
+            <button
+              onClick={exitSelectionMode}
+              title="Done"
+              className="p-3 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-[1600px] mx-auto">
         {/* Back Navigation */}
         <button
@@ -885,12 +1018,20 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                       {chapters.map((chapter) => {
                         const isRead = readChapters.has(chapter.id);
                             
+                        const isSelected = selectedChapters.has(chapter.id);
+
                         return (
                           <div
                             key={chapter.id}
-                            className={`relative border rounded-2xl overflow-hidden group backdrop-blur-sm ${
+                            className={`relative border rounded-2xl overflow-hidden group backdrop-blur-sm transition-all ${
                               darkMode ? 'bg-white/[0.03] border-white/5' : 'bg-stone-100 border-stone-200'
-                            } ${isRead ? 'opacity-60' : ''}`}
+                            } ${isRead ? 'opacity-60' : ''} ${
+                              isSelectionMode
+                                ? isSelected
+                                  ? 'ring-2 ring-indigo-500 border-indigo-500'
+                                  : 'opacity-70'
+                                : ''
+                            }`}
                           >
                             {/* Swipe indicator - appears only when swiping, stays stationary */}
                             <div className={`absolute right-4 top-1/2 -translate-y-1/2 transition-opacity duration-200 ease-in-out pointer-events-none z-10 ${
@@ -900,20 +1041,39 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                             </div>
 
                             <div
-                              onTouchStart={(e) => handleTouchStart(e, chapter.id)}
-                              onTouchMove={(e) => handleTouchMove(e, chapter.id)}
-                              onTouchEnd={(e) => handleTouchEnd(e, chapter.id)}
+                              onTouchStart={(e) => { handleTouchStart(e, chapter.id); handlePressStart(e, chapter); }}
+                              onTouchMove={(e) => { handleTouchMove(e, chapter.id); handlePressMove(e); }}
+                              onTouchEnd={(e) => { handleTouchEnd(e, chapter.id); handlePressEnd(); }}
+                              onMouseDown={(e) => handlePressStart(e, chapter)}
+                              onMouseMove={handlePressMove}
+                              onMouseUp={handlePressEnd}
+                              onMouseLeave={handlePressEnd}
                               style={{
                                 transform: swipeState.chapterId === chapter.id ? `translateX(${swipeState.translateX}px)` : 'translateX(0)',
                                 transition: swipeState.chapterId === chapter.id ? 'none' : 'transform 0.3s ease-out'
                               }}
                             >
                             <button
-                              onClick={() => handleChapterClick(chapter)}
+                              onClick={() => {
+                                if (suppressClickRef.current) {
+                                  suppressClickRef.current = false;
+                                  return;
+                                }
+                                isSelectionMode ? toggleChapterSelection(chapter.id) : handleChapterClick(chapter);
+                              }}
                               className="w-full bg-transparent border-0 p-4 text-left cursor-pointer"
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-4 flex-1">
+                                  {isSelectionMode && (
+                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                                      isSelected
+                                        ? 'border-indigo-500 bg-indigo-500 shadow-md shadow-indigo-500/30'
+                                        : darkMode ? 'border-gray-500' : 'border-stone-300'
+                                    }`}>
+                                      {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
+                                    </div>
+                                  )}
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center space-x-2 mb-1">
                                       <h3 className={`font-bold text-base transition-colors truncate ${

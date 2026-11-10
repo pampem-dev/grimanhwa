@@ -8,6 +8,14 @@ const History = ({ onOpenManga }) => {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [pressTimer, setPressTimer] = useState(null);
+  const [hideLabels, setHideLabels] = useState(() => {
+    // iOS-style icon-only mode (no titles under covers)
+    try {
+      return localStorage.getItem('historyHideLabels') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Function to get the latest read chapter for a manga
   const getLatestReadChapter = useCallback((mangaId) => {
@@ -43,6 +51,14 @@ const History = ({ onOpenManga }) => {
       setItems([]);
     }
   }, []);
+
+  // Save hide-labels preference to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('historyHideLabels', hideLabels.toString());
+    } catch (err) {
+    }
+  }, [hideLabels]);
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0));
@@ -173,15 +189,39 @@ const History = ({ onOpenManga }) => {
               )}
             </div>
           ) : (
-            items.length > 0 && (
+            <div className="flex items-center gap-2">
+              {/* Hide labels toggle (icon-only mode) */}
               <button
-                onClick={clearHistory}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
+                onClick={() => setHideLabels(!hideLabels)}
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-lg border transition-all duration-200 ${
+                  hideLabels
+                    ? 'bg-blue-500/15 border-blue-500/40'
+                    : 'bg-white/5 border-white/10 hover:bg-white/10'
+                }`}
               >
-                <Trash2 size={16} />
-                <span>Clear All</span>
+                <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                  hideLabels ? 'bg-blue-500' : 'bg-white/15'
+                }`}>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                    hideLabels ? 'translate-x-4' : 'translate-x-0'
+                  }`} />
+                </span>
+                <span className={`text-sm font-medium transition-colors ${
+                  hideLabels ? 'text-white' : 'text-gray-400'
+                }`}>
+                  Hide Title
+                </span>
               </button>
-            )
+              {items.length > 0 && (
+                <button
+                  onClick={clearHistory}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
+                >
+                  <Trash2 size={16} />
+                  <span>Clear All</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -201,7 +241,9 @@ const History = ({ onOpenManga }) => {
               return (
                 <div 
                   key={it.mangaId} 
-                  className={`cursor-pointer group flex flex-col relative ${
+                  className={`cursor-pointer group flex flex-col relative transition-transform duration-300 ease-out ${
+                    hideLabels ? 'scale-[1.03] origin-top' : ''
+                  } ${
                     isSelectionMode ? 'pointer-events-auto' : ''
                   }`}
                   onMouseDown={(e) => handleItemPress(it, e)}
@@ -232,7 +274,7 @@ const History = ({ onOpenManga }) => {
                   )}
                   
                   {/* Card Container */}
-                  <div className={`relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border transition-all duration-300 ${
+                  <div className={`relative aspect-[3/4.5] w-full rounded-xl overflow-hidden border transition-all duration-300 ${
                     isSelectionMode 
                       ? isSelected 
                         ? 'border-white/30 group-hover:border-white/40' 
@@ -259,16 +301,18 @@ const History = ({ onOpenManga }) => {
                   </div>
                   
                   {/* Title styling matching your screenshot: All caps, bold, truncated */}
-                  <div className="px-1">
-                    <h3 className={`text-[11px] font-bold uppercase tracking-tight leading-tight line-clamp-2 text-center transition-colors ${
-                      isSelectionMode 
-                        ? isSelected 
-                          ? 'text-white' 
-                          : 'text-white/50'
-                        : 'text-white group-hover:text-indigo-400'
-                    }`}>
-                      {displayTitle}
-                    </h3>
+                  <div className={`overflow-hidden transition-all duration-300 ease-out ${hideLabels ? 'opacity-0 max-h-0' : 'opacity-100 max-h-12 mt-3'}`}>
+                    <div className="px-1">
+                      <h3 className={`text-[11px] font-bold uppercase tracking-tight leading-tight line-clamp-2 text-center transition-colors ${
+                        isSelectionMode
+                          ? isSelected
+                            ? 'text-white'
+                            : 'text-white/50'
+                          : 'text-white group-hover:text-indigo-400'
+                      }`}>
+                        {displayTitle}
+                      </h3>
+                    </div>
                   </div>
                 </div>
               );

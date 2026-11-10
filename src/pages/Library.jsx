@@ -16,6 +16,14 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'title-asc', 'title-desc'
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [hideLabels, setHideLabels] = useState(() => {
+    // iOS-style icon-only mode (no titles under covers)
+    try {
+      return localStorage.getItem('libraryHideLabels') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const dropdownRef = useRef(null);
 
   // Close dropdown when clicking outside
@@ -36,6 +44,14 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     } catch (err) {
     }
   }, [viewMode]);
+
+  // Save hide-labels preference to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('libraryHideLabels', hideLabels.toString());
+    } catch (err) {
+    }
+  }, [hideLabels]);
 
   // Sort options
   const sortOptions = [
@@ -128,10 +144,10 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
           return (
             <div
               key={manga.id}
-              className="group cursor-pointer flex flex-col"
+              className={`group cursor-pointer flex flex-col transition-transform duration-300 ease-out ${hideLabels ? 'scale-[1.03] origin-top' : ''}`}
               onClick={() => onMangaDetails(manga)}
             >
-              <div className="relative aspect-[3/4.5] w-full rounded-xl overflow-hidden mb-3 border border-white/5 transition-all duration-300 group-hover:border-white/20">
+              <div className="relative aspect-[3/4.5] w-full rounded-xl overflow-hidden border border-white/5 transition-all duration-300 group-hover:border-white/20">
                 <img
                   src={manga.cover_url || manga.cover}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -142,10 +158,12 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
                 />
               </div>
               {/* Title styling matching your screenshot: All caps, bold, truncated */}
-              <div className="px-1">
-                <h3 className="text-[11px] font-bold uppercase tracking-tight text-white leading-tight line-clamp-2 text-center group-hover:text-indigo-400 transition-colors">
-                  {manga.title}
-                </h3>
+              <div className={`overflow-hidden transition-all duration-300 ease-out ${hideLabels ? 'opacity-0 max-h-0' : 'opacity-100 max-h-12 mt-3'}`}>
+                <div className="px-1">
+                  <h3 className="text-[11px] font-bold uppercase tracking-tight text-white leading-tight line-clamp-2 text-center group-hover:text-indigo-400 transition-colors">
+                    {manga.title}
+                  </h3>
+                </div>
               </div>
             </div>
           );
@@ -315,6 +333,32 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
                 <List size={16} />
               </button>
             </div>
+
+            {/* Hide labels toggle (icon-only mode) */}
+            <button
+              onClick={() => setHideLabels(!hideLabels)}
+              disabled={viewMode !== 'grid'}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border transition-all duration-200 ${
+                viewMode !== 'grid'
+                  ? 'bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed'
+                  : hideLabels
+                    ? 'bg-blue-500/15 border-blue-500/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
+              }`}
+            >
+              <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                hideLabels && viewMode === 'grid' ? 'bg-blue-500' : 'bg-white/15'
+              }`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                  hideLabels && viewMode === 'grid' ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </span>
+              <span className={`text-sm font-medium transition-colors ${
+                hideLabels && viewMode === 'grid' ? 'text-white' : 'text-gray-400'
+              }`}>
+                Hide Title
+              </span>
+            </button>
           </div>
         </div>
 
