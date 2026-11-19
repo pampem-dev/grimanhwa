@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../config/api';
 import { getCachedData, setCachedData, clearAllMangaCache, resetActivityTime } from '../utils/cache';
 
@@ -15,11 +15,7 @@ export const useCollections = () => {
 export const CollectionsProvider = ({ children }) => {
   const [allManga, setAllManga] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [backgroundLoading, setBackgroundLoading] = useState(false);
   const [mangaDetails, setMangaDetails] = useState({});
-
-  const maxPages = 20;
-  const itemsPerPage = 20;
 
   // Sort function
   const sortManga = (mangaList, sortBy) => {
@@ -44,59 +40,6 @@ export const CollectionsProvider = ({ children }) => {
         break;
     }
     return sorted;
-  };
-
-  // Function to load remaining pages in background
-  const loadMorePagesRef = useRef(null);
-
-  loadMorePagesRef.current = async (startPage, endPage, existingData) => {
-    let mangaData = [...existingData];
-
-    for (let page = startPage; page <= endPage; page++) {
-      try {
-        const pageUrl = `${API_URL}api/kaynscan/browse/?page=${page}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s for backend scraping
-
-        const response = await fetch(pageUrl, {
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          },
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          continue;
-        }
-
-        const data = await response.json();
-        let pageManga = [];
-
-        if (Array.isArray(data)) {
-          pageManga = data;
-        } else if (data && Array.isArray(data.manga)) {
-          pageManga = data.manga;
-        } else if (data && Array.isArray(data.results)) {
-          pageManga = data.results;
-        }
-
-        if (pageManga.length > 0) {
-          mangaData = [...mangaData, ...pageManga];
-          setAllManga([...mangaData]);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 200));
-      } catch (error) {
-        if (error.name === 'AbortError') {
-        } else {
-        }
-      }
-    }
-
-    setBackgroundLoading(false);
   };
 
   // Fetch all manga from database (instant)
@@ -210,7 +153,6 @@ export const CollectionsProvider = ({ children }) => {
   const value = {
     allManga,
     loading,
-    backgroundLoading,
     mangaDetails,
     fetchAllManga,
     sortManga,

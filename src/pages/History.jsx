@@ -154,7 +154,7 @@ const History = ({ onOpenManga }) => {
       <div className="max-w-7xl mx-auto">
         
         {/* Header matching your Collections screenshot */}
-        <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
+        <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-3">
             {isSelectionMode ? (
               <div className="flex items-center gap-2">
@@ -162,68 +162,74 @@ const History = ({ onOpenManga }) => {
                 <span className="text-lg sm:text-xl text-gray-400">selected</span>
               </div>
             ) : (
-              <>
-                <h1 className="text-3xl font-bold tracking-tight">History</h1>
-                <span className="text-xs text-gray-500 mt-2">{items.length} total</span>
-              </>
+              <h1 className="text-3xl font-bold tracking-tight">History</h1>
             )}
           </div>
-
-          {isSelectionMode ? (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={exitSelectionMode}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
-              >
-                <X size={16} />
-                <span>Cancel</span>
-              </button>
-              {selectedItems.size > 0 && (
-                <button
-                  onClick={removeSelectedItems}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600/20 border border-red-500/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-all text-sm"
-                >
-                  <Trash2 size={16} />
-                  <span>Remove{selectedItems.size > 1 ? ` (${selectedItems.size})` : ''}</span>
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              {/* Hide labels toggle (icon-only mode) */}
-              <button
-                onClick={() => setHideLabels(!hideLabels)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-lg border transition-all duration-200 ${
-                  hideLabels
-                    ? 'bg-blue-500/15 border-blue-500/40'
-                    : 'bg-white/5 border-white/10 hover:bg-white/10'
-                }`}
-              >
-                <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                  hideLabels ? 'bg-blue-500' : 'bg-white/15'
-                }`}>
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                    hideLabels ? 'translate-x-4' : 'translate-x-0'
-                  }`} />
-                </span>
-                <span className={`text-sm font-medium transition-colors ${
-                  hideLabels ? 'text-white' : 'text-gray-400'
-                }`}>
-                  Hide Title
-                </span>
-              </button>
-              {items.length > 0 && (
-                <button
-                  onClick={clearHistory}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
-                >
-                  <Trash2 size={16} />
-                  <span>Clear All</span>
-                </button>
-              )}
+          {!isSelectionMode && (
+            <div className="text-sm text-gray-400">
+              {items.length} total
             </div>
           )}
         </div>
+
+        {/* Action buttons row */}
+        {!isSelectionMode && (
+          <div className="flex items-center gap-2 mb-8">
+            {/* Hide labels toggle (icon-only mode) */}
+            <button
+              onClick={() => setHideLabels(!hideLabels)}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all duration-200 ${
+                hideLabels
+                  ? 'bg-blue-500/15 border-blue-500/40'
+                  : 'bg-white/5 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${
+                hideLabels ? 'bg-blue-500' : 'bg-white/15'
+              }`}>
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                  hideLabels ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </span>
+              <span className={`text-sm font-medium transition-colors whitespace-nowrap ${
+                hideLabels ? 'text-white' : 'text-gray-400'
+              }`}>
+                Hide Title
+              </span>
+            </button>
+            {items.length > 0 && (
+              <button
+                onClick={clearHistory}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
+              >
+                <Trash2 size={16} />
+                <span className="whitespace-nowrap">Clear All</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Selection mode buttons */}
+        {isSelectionMode && (
+          <div className="flex items-center gap-2 mb-8">
+            <button
+              onClick={exitSelectionMode}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all text-sm"
+            >
+              <X size={16} />
+              <span>Cancel</span>
+            </button>
+            {selectedItems.size > 0 && (
+              <button
+                onClick={removeSelectedItems}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600/20 border border-red-500/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-all text-sm"
+              >
+                <Trash2 size={16} />
+                <span>Remove{selectedItems.size > 1 ? ` (${selectedItems.size})` : ''}</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 text-gray-500">

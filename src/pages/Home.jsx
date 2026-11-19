@@ -37,43 +37,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     return data.manga || data.trending || data.results || [];
   };
 
-  const cleanTitle = (title) => {
-    if (!title) return title;
-    const original = title;
-    // Remove common prefixes (Editor'sPick, Featured, Recommended, etc.)
-    let cleaned = title.replace(/^(Editor'?s?Pick|Featured|Recommended|TopPick|StaffPick)/gi, '');
-    // Remove rating prefix (e.g., "9.4" or "8.9") at the start (with or without space)
-    cleaned = cleaned.replace(/^\d+\.\d+/, '');
-    // Also remove rating at the very end of title
-    cleaned = cleaned.replace(/\d+\.\d+$/, '');
-    // Remove chapter numbers at start (CHAPTER90, Chapter 90, etc.)
-    cleaned = cleaned.replace(/^chapter\s*\d+/gi, '');
-    // Remove chapter numbers anywhere in the title
-    cleaned = cleaned.replace(/chapter\s*\d+/gi, '');
-    // Remove standalone numbers that look like chapter numbers
-    cleaned = cleaned.replace(/^\d+\s+/, '');
-    // Remove chapter number pattern like "chapter3359" attached to title
-    cleaned = cleaned.replace(/chapter\d+/gi, '');
-    // Remove standalone "chapter" word at the end
-    cleaned = cleaned.replace(/chapter$/gi, '');
-    // Remove decimal ratings at the end (like ".3" or ".9")
-    cleaned = cleaned.replace(/\.\d+$/, '');
-    // Remove common time patterns that might be part of the title
-    cleaned = cleaned.replace(/\d+\s*(hours?|days?|weeks?|months?)\s+ago/gi, '');
-    // Remove trailing hyphens and numbers
-    cleaned = cleaned.replace(/-\s*\d+$/, '');
-    // Remove leading dots/numbers that might be leftover
-    cleaned = cleaned.replace(/^\.?\d+/, '');
-    // Remove description-like text that might follow the title
-    // Look for patterns like "A must-read recommendation..." or "Top rated series..."
-    cleaned = cleaned.replace(/\s*(A|An|The)\s+(must-read|recommended|highly\s+rated|top\s+rated|staff\s+pick|editor'?s?\s+choice).*/gi, '');
-    // Remove extra whitespace
-    cleaned = cleaned.replace(/\s+/g, ' ').trim();
-
-    return cleaned;
-  };
-
-
 
   // Optimized chapter fetching
   const fetchLatestChapter = async (mangaId) => {
@@ -527,7 +490,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
           : trendingManga.slice(0, 10).map((manga) => (
               <MangaCard
                 key={manga.id}
-                title={cleanTitle(manga.title)}
+                title={manga.title}
                 coverUrl={manga.cover_url || manga.cover}
                 rating={manga.rating}
                 onClick={() => handleMangaClick(manga)}
@@ -569,10 +532,17 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                       className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
                       alt={manga.title}
                     />
+                    {/* Rating badge - same style as HeroCarousel */}
+                    {manga.rating && (
+                      <div className="absolute top-1 left-1 z-10 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-white/10">
+                        <Star size={8} className="text-yellow-400" fill="currentColor" />
+                        <span className="text-[9px] font-semibold leading-none text-white">{manga.rating}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <p className={`font-bold line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {cleanTitle(manga.title)}
+                      {manga.title}
                     </p>
                     <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                       {latestChapter ? `Chapter ${latestChapter.number}` : 'Loading...'}
@@ -687,7 +657,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                 </div>
                 <div className="flex-1 min-w-0" style={{ color: darkMode ? '#e5e7eb' : '#1f2937' }}>
                   <h3 className={`text-sm font-bold line-clamp-2 leading-tight group-hover:text-blue-400 transition-colors ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                    {cleanTitle(manga.title)}
+                    {manga.title}
                   </h3>
                   {manga.rating && (
                     <div className="flex items-center gap-1 mt-1">

@@ -247,71 +247,11 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
     <div className="min-h-screen bg-[#050505] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white">Library</h1>
-          <div className="text-sm text-gray-400">
-            {searchQuery ? 
-              `${filteredAndSortedManga.length} found` : 
-              `${libraryManga.length} total`
-            }
-          </div>
-        </div>
-
-        {/* Search and Sort Controls */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-8">
-          {/* Search */}
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/[0.03] border border-white/5 focus:border-blue-500/50 focus:bg-white/[0.06] outline-none transition-all text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Sort Controls */}
-          <div className="flex gap-2 items-center">
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-3 px-4 py-2.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white hover:bg-white/[0.06] transition-all text-sm focus:border-blue-500/50 outline-none"
-              >
-                <span>{getCurrentOption()?.label}</span>
-                <ChevronDown 
-                  size={16} 
-                  className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              {/* Dropdown Menu */}
-              {dropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-[#050505] border border-white/5 rounded-2xl shadow-lg z-50">
-                  {sortOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        setSortBy(option.value);
-                        setDropdownOpen(false);
-                      }}
-                      className={`w-full px-4 py-2 text-left text-sm transition-colors ${
-                        sortBy === option.value
-                          ? 'bg-blue-500/20 text-white border-l-2 border-blue-500'
-                          : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* View Mode Toggle - Right Side */}
-            <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1 ml-auto">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-white">Library</h1>
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-white/[0.03] border border-white/5 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`px-3 py-2 rounded-md transition-colors ${
@@ -333,33 +273,92 @@ const Library = ({ onMangaSelect, onMangaDetails }) => {
                 <List size={16} />
               </button>
             </div>
-
-            {/* Hide labels toggle (icon-only mode) */}
-            <button
-              onClick={() => setHideLabels(!hideLabels)}
-              disabled={viewMode !== 'grid'}
-              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border transition-all duration-200 ${
-                viewMode !== 'grid'
-                  ? 'bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed'
-                  : hideLabels
-                    ? 'bg-blue-500/15 border-blue-500/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
-              }`}
-            >
-              <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                hideLabels && viewMode === 'grid' ? 'bg-blue-500' : 'bg-white/15'
-              }`}>
-                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-                  hideLabels && viewMode === 'grid' ? 'translate-x-4' : 'translate-x-0'
-                }`} />
-              </span>
-              <span className={`text-sm font-medium transition-colors ${
-                hideLabels && viewMode === 'grid' ? 'text-white' : 'text-gray-400'
-              }`}>
-                Hide Title
-              </span>
-            </button>
           </div>
+          <div className="text-sm text-gray-400">
+            {searchQuery ?
+              `${filteredAndSortedManga.length} found` :
+              `${libraryManga.length} total`
+            }
+          </div>
+        </div>
+
+        {/* Search bar - full width */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white/[0.03] border border-white/5 focus:border-blue-500/50 focus:bg-white/[0.06] outline-none transition-all text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Controls row */}
+        <div className="flex flex-wrap items-center gap-3 mb-8">
+          {/* Sort dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.03] border border-white/5 rounded-2xl text-white hover:bg-white/[0.06] transition-all text-sm focus:border-blue-500/50 outline-none"
+            >
+              <span>{getCurrentOption()?.label}</span>
+              <ChevronDown
+                size={16}
+                className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {dropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-[#050505] border border-white/5 rounded-2xl shadow-lg z-50">
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setSortBy(option.value);
+                      setDropdownOpen(false);
+                    }}
+                    className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                      sortBy === option.value
+                        ? 'bg-blue-500/20 text-white border-l-2 border-blue-500'
+                        : 'text-gray-400 hover:bg-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Hide labels toggle (icon-only mode) */}
+          <button
+            onClick={() => setHideLabels(!hideLabels)}
+            disabled={viewMode !== 'grid'}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border transition-all duration-200 ${
+              viewMode !== 'grid'
+                ? 'bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed'
+                : hideLabels
+                  ? 'bg-blue-500/15 border-blue-500/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-white/10'
+            }`}
+          >
+            <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${
+              hideLabels && viewMode === 'grid' ? 'bg-blue-500' : 'bg-white/15'
+            }`}>
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                hideLabels && viewMode === 'grid' ? 'translate-x-4' : 'translate-x-0'
+              }`} />
+            </span>
+            <span className={`text-sm font-medium transition-colors whitespace-nowrap ${
+              hideLabels && viewMode === 'grid' ? 'text-white' : 'text-gray-400'
+            }`}>
+              Hide Title
+            </span>
+          </button>
         </div>
 
         
