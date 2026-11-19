@@ -227,7 +227,7 @@ const Settings = () => {
             <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           </div>
           <div className="text-sm text-gray-500">
-            Version 1.5.3
+            Version 1.6.2
           </div>
         </div>
 
@@ -544,7 +544,7 @@ const Settings = () => {
             <div className={`p-4 rounded-xl border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-stone-50 border-stone-200'}`}>
               <div className="flex items-center justify-between mb-2">
                 <p className="font-medium text-white">grimanhwa</p>
-                <span className="text-sm text-gray-400">v1.5.3</span>
+                <span className="text-sm text-gray-400">v1.6.2</span>
               </div>
               <div className="flex gap-4">
                 <a
