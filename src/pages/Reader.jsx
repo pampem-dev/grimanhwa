@@ -73,6 +73,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
   const previousChapterIdRef = useRef(null);
   const hasStartedFetchRef = useRef(false);
   const dropdownRef = useRef(null);
+  const isExplicitNavigationRef = useRef(false);
 
   // Use URL chapter ID if not provided via props
   const chapterId = propChapterId || urlChapterId;
@@ -364,21 +365,28 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
     if (chapterId) {
       // Only abort and reset if chapterId actually changed (not on mount)
       if (previousChapterIdRef.current && previousChapterIdRef.current !== chapterId) {
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
+        // Only reset if this is an explicit navigation (not automatic scrolling)
+        if (isExplicitNavigationRef.current) {
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+          hasStartedFetchRef.current = false;
+
+          // Create new AbortController for this chapter
+          abortControllerRef.current = new AbortController();
+          previousChapterIdRef.current = chapterId;
+
+          setChapters([]);
+          setLoadedIds(new Set());
+          setFailedIds(new Set());
+          setActiveChapterId(null);
+          setHasReachedEnd(false);
+          setIsLoadingNext(false);
+          isExplicitNavigationRef.current = false;
+        } else {
+          // Automatic scroll transition - just update the ref, don't reset
+          previousChapterIdRef.current = chapterId;
         }
-        hasStartedFetchRef.current = false;
-
-        // Create new AbortController for this chapter
-        abortControllerRef.current = new AbortController();
-        previousChapterIdRef.current = chapterId;
-
-        setChapters([]);
-        setLoadedIds(new Set());
-        setFailedIds(new Set());
-        setActiveChapterId(null);
-        setHasReachedEnd(false);
-        setIsLoadingNext(false);
       } else if (!previousChapterIdRef.current) {
         // First mount - set the ref but don't reset state
         previousChapterIdRef.current = chapterId;
@@ -737,10 +745,21 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
 
   // Handle chapter navigation
   const handleNavigate = (nextChapterId) => {
+    isExplicitNavigationRef.current = true;
     if (onNavigate) {
       onNavigate(nextChapterId);
     } else {
       navigate(`/reader/${encodeURIComponent(nextChapterId)}?manga=${encodeURIComponent(mangaId || '')}`, { replace: true });
+      // Scroll to first page of the target chapter after navigation
+      setTimeout(() => {
+        const pageElement = document.getElementById(`page-${nextChapterId}-0`);
+        if (pageElement) {
+          pageElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Clear saved position for this chapter since we're explicitly navigating
+          const key = `reader_position_${nextChapterId}`;
+          localStorage.removeItem(key);
+        }
+      }, 100);
     }
   };
 
@@ -965,8 +984,8 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                   .slider::-webkit-slider-thumb {
                     -webkit-appearance: none;
                     appearance: none;
-                    width: 18px;
-                    height: 18px;
+                    width: 28px;
+                    height: 28px;
                     border-radius: 50%;
                     background: #3b82f6;
                     cursor: pointer;
@@ -975,11 +994,11 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                     transition: transform 0.15s ease;
                   }
                   .slider::-webkit-slider-thumb:hover {
-                    transform: scale(1.2);
+                    transform: scale(1.15);
                   }
                   .slider::-moz-range-thumb {
-                    width: 18px;
-                    height: 18px;
+                    width: 28px;
+                    height: 28px;
                     border-radius: 50%;
                     background: #3b82f6;
                     cursor: pointer;
@@ -988,7 +1007,7 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
                     transition: transform 0.15s ease;
                   }
                   .slider::-moz-range-thumb:hover {
-                    transform: scale(1.2);
+                    transform: scale(1.15);
                   }
                   .slider::-webkit-slider-runnable-track {
                     background: linear-gradient(to right, #3b82f6 0%, #3b82f6 var(--value, 0%), #1f2937 var(--value, 0%), #1f2937 100%);
