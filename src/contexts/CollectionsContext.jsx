@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { API_URL } from '../config/api';
+import { getCachedData, setCachedData, clearAllMangaCache, resetActivityTime } from '../utils/cache';
 
 const CollectionsContext = createContext();
 
@@ -103,8 +104,27 @@ export const CollectionsProvider = ({ children }) => {
     if (loading && !forceRefresh) return;
 
     setLoading(true);
+    resetActivityTime();
 
     try {
+      // Check cache first
+      const cachedData = getCachedData('collections_all_manga');
+      if (cachedData && !forceRefresh) {
+        let allMangaData = [];
+
+        if (Array.isArray(cachedData)) {
+          allMangaData = cachedData;
+        } else if (cachedData && Array.isArray(cachedData.manga)) {
+          allMangaData = cachedData.manga;
+        } else if (cachedData && Array.isArray(cachedData.results)) {
+          allMangaData = cachedData.results;
+        }
+
+        setAllManga(allMangaData);
+        setLoading(false);
+        return;
+      }
+
       // Use database endpoint for instant results
       const dbUrl = `${API_URL}api/manga-db/`;
       const controller = new AbortController();
@@ -121,6 +141,10 @@ export const CollectionsProvider = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
+
+        // Cache the raw data
+        setCachedData('collections_all_manga', data);
+
         let allMangaData = [];
 
         if (Array.isArray(data)) {

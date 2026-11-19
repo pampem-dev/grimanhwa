@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { List, Grid, Search, ChevronLeft, ChevronRight, ArrowUpDown, ChevronDown, Star } from 'lucide-react';
 import { API_ENDPOINTS, API_URL } from '../config/api';
 import { useCollections } from '../contexts/CollectionsContext';
+import { getCachedData, setCachedData, clearAllMangaCache, resetActivityTime } from '../utils/cache';
 
 // Virtual scroll component for large lists
 const VirtualScroll = ({ items, itemHeight, containerHeight, renderItem }) => {
@@ -581,6 +582,9 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
         localStorage.removeItem(key);
       }
     });
+
+    // Clear manga cache
+    clearAllMangaCache();
 
     // Force refresh using context
     fetchAllManga(true);

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, ChevronLeft, Book, Clock, Star, Play, Info, List, ChevronRight, ChevronDown, Check, CheckCheck, ListChecks, X } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
 import { useTheme } from '../contexts/ThemeContext';
+import { getCachedData, setCachedData, clearAllMangaCache, resetActivityTime } from '../utils/cache';
 
 const Details = ({ manga: propManga, onBack, onChapterRead }) => {
   const { mangaId } = useParams();
@@ -80,11 +81,23 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
     // Fetch manga from database
     const fetchMangaFromCollections = async () => {
       try {
+        resetActivityTime();
+
+        // Check cache first
+        const cachedData = getCachedData(`manga_${mangaId}`);
+        if (cachedData) {
+          setManga(cachedData);
+          setMangaDetails(cachedData);
+          return;
+        }
+
         const response = await fetch(API_ENDPOINTS.MANGA(mangaId));
         if (response.ok) {
           const data = await response.json();
           setManga(data);
           setMangaDetails(data);
+          // Cache the data
+          setCachedData(`manga_${mangaId}`, data);
         }
       } catch (error) {
       }

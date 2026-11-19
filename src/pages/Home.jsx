@@ -6,6 +6,7 @@ import MangaCard from '../components/MangaCard';
 import HeroCarousel from '../components/HeroCarousel';
 import { useTheme } from '../contexts/ThemeContext';
 import { setItemAsync, getItem } from '../utils/storage';
+import { getCachedData, setCachedData, clearAllMangaCache, resetActivityTime } from '../utils/cache';
 
 const Home = ({ onMangaSelect, onMangaDetails }) => {
   const { darkMode } = useTheme();
@@ -310,19 +311,90 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItems.length, loadingRecent]);
 
-  // Optimized fetchAllManga with error handling
+  // Optimized fetchAllManga with error handling and caching
   const fetchAllManga = useCallback(async () => {
     try {
       setFetchError(null);
       setIsRefreshing(true);
-      
+      resetActivityTime();
+
+      // Check cache first
+      const cachedData = getCachedData('home_all_manga');
+      if (cachedData && !isRefreshing) {
+        const allManga = getMangaList(cachedData);
+
+        if (allManga.length > 0) {
+          // Filter out chapter-specific entries (keep only main manga entries)
+          const mangaOnly = allManga.filter(item => {
+            const title = item.title || '';
+            return !title.match(/^chapter\s*\d+/i) &&
+                   !title.match(/\d+\s*(hours?|days?|weeks?|months?)\s+ago/i) &&
+                   !title.match(/last\s+(hour|day|week|month)/i);
+          });
+
+          // Remove duplicates based on ID only
+          const seenIds = new Set();
+          const uniqueManga = mangaOnly.filter(item => {
+            if (item.id && seenIds.has(item.id)) {
+              return false;
+            }
+            if (item.id) {
+              seenIds.add(item.id);
+            }
+            return true;
+          });
+
+          // Store all manga for pagination
+          setAllMangaList(uniqueManga);
+
+          // Create non-overlapping slices for each section with fallbacks
+          const totalManga = uniqueManga.length;
+
+          // Sort all manga by rating (highest first) for topRated section
+          const sortedByRating = [...uniqueManga].sort((a, b) => {
+            const ratingA = a.rating || 0;
+            const ratingB = b.rating || 0;
+            return ratingB - ratingA;
+          });
+          const topRated = sortedByRating.slice(0, 10);
+
+          let featured, trending, recent;
+          if (totalManga >= 25) {
+            featured = uniqueManga.slice(0, 15);
+            trending = uniqueManga.slice(15, 25);
+            recent = uniqueManga.slice(25, 35);
+          } else {
+            const trendingSize = Math.min(10, totalManga);
+            const remaining = totalManga - trendingSize;
+            const featuredSize = Math.floor(remaining / 2);
+            const recentSize = remaining - featuredSize;
+
+            featured = uniqueManga.slice(0, featuredSize);
+            trending = uniqueManga.slice(featuredSize, featuredSize + trendingSize);
+            recent = uniqueManga.slice(featuredSize + trendingSize);
+          }
+
+          setFeaturedManga(featured);
+          setTrendingManga(trending);
+          setRecentManga(recent);
+          setTopRatedManga(topRated);
+
+          setLoadingTrending(false);
+          setLoadingRecent(false);
+          setLoadingPopular(false);
+          setLoadingTopRated(false);
+          setIsRefreshing(false);
+          return;
+        }
+      }
+
       // Always use backend API from environment
       const apiUrl = API_ENDPOINTS.SEARCH('a');
-      
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(apiUrl, { 
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(apiUrl, {
         signal: controller.signal,
         mode: 'cors',
         headers: {
@@ -330,9 +402,13 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         }
       });
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         const data = await response.json();
+
+        // Cache the raw data
+        setCachedData('home_all_manga', data);
+
         const allManga = getMangaList(data);
 
         if (allManga.length === 0) {
@@ -342,7 +418,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         // Filter out chapter-specific entries (keep only main manga entries)
         const mangaOnly = allManga.filter(item => {
           const title = item.title || '';
-          // Skip entries that look like chapter updates
           return !title.match(/^chapter\s*\d+/i) &&
                  !title.match(/\d+\s*(hours?|days?|weeks?|months?)\s+ago/i) &&
                  !title.match(/last\s+(hour|day|week|month)/i);
@@ -370,18 +445,16 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         const sortedByRating = [...uniqueManga].sort((a, b) => {
           const ratingA = a.rating || 0;
           const ratingB = b.rating || 0;
-          return ratingB - ratingA; // Descending order
+          return ratingB - ratingA;
         });
-        const topRated = sortedByRating.slice(0, 10); // Top 10 highest rated
+        const topRated = sortedByRating.slice(0, 10);
 
-        // If we have enough manga, use non-overlapping slices
         let featured, trending, recent;
         if (totalManga >= 25) {
           featured = uniqueManga.slice(0, 15);
           trending = uniqueManga.slice(15, 25);
           recent = uniqueManga.slice(25, 35);
         } else {
-          // If limited manga, ensure trending gets 10 items
           const trendingSize = Math.min(10, totalManga);
           const remaining = totalManga - trendingSize;
           const featuredSize = Math.floor(remaining / 2);
@@ -396,7 +469,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         setTrendingManga(trending);
         setRecentManga(recent);
         setTopRatedManga(topRated);
-        
+
         setLoadingTrending(false);
         setLoadingRecent(false);
         setLoadingPopular(false);
@@ -413,11 +486,12 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     } finally {
       setIsRefreshing(false);
     }
-  }, []);
+  }, [isRefreshing]);
 
   // Refresh function
   const handleRefresh = useCallback(() => {
     setLatestChapters({});
+    clearAllMangaCache();
     fetchAllManga();
   }, [fetchAllManga]);
 
