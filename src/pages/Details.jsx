@@ -885,7 +885,41 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
 
               <div className="hidden lg:block">
                 <button
-                  onClick={() => chapters.length > 0 && onChapterRead(chapters[chapters.length - 1])}
+                  onClick={() => {
+                    // Find the latest read chapter
+                    let latestReadChapter = null;
+                    let latestReadNum = 0;
+
+                    readChapters.forEach(chapterId => {
+                      const match = chapterId.match(/chapter\/(\d+)/i);
+                      if (match) {
+                        const num = parseInt(match[1]);
+                        if (num > latestReadNum) {
+                          latestReadNum = num;
+                          latestReadChapter = chapters.find(ch => ch.id === chapterId);
+                        }
+                      }
+                    });
+
+                    // If we have a read chapter, continue from the next one
+                    if (latestReadChapter) {
+                      const nextChapterNum = latestReadNum + 1;
+                      const nextChapter = chapters.find(ch => {
+                        const match = ch.id.match(/chapter\/(\d+)/i);
+                        return match && parseInt(match[1]) === nextChapterNum;
+                      });
+
+                      if (nextChapter) {
+                        onChapterRead(nextChapter);
+                      } else {
+                        // If no next chapter, go to the last chapter
+                        onChapterRead(chapters[chapters.length - 1]);
+                      }
+                    } else {
+                      // Start from the first chapter if nothing read yet
+                      onChapterRead(chapters[0]);
+                    }
+                  }}
                   disabled={chapters.length === 0}
                   className={`flex items-center justify-center space-x-2 w-full py-3 mb-2 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
                     darkMode
@@ -894,7 +928,22 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
                   }`}
                 >
                   <Play size={18} fill="currentColor" />
-                  <span>Start Reading</span>
+                  <span>
+                    {(() => {
+                      // Check if there's a read chapter to show "Continue Reading"
+                      let latestReadNum = 0;
+                      readChapters.forEach(chapterId => {
+                        const match = chapterId.match(/chapter\/(\d+)/i);
+                        if (match) {
+                          const num = parseInt(match[1]);
+                          if (num > latestReadNum) {
+                            latestReadNum = num;
+                          }
+                        }
+                      });
+                      return latestReadNum > 0 ? `Continue Reading Chapter ${latestReadNum + 1}` : 'Start Reading';
+                    })()}
+                  </span>
                 </button>
                 <button
                   onClick={toggleLibrary}
@@ -1141,7 +1190,41 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
         <div className={`lg:hidden fixed bottom-0 left-0 right-0 backdrop-blur-xl border-t p-4 z-50 ${darkMode ? 'bg-[#050505]/95 border-white/10' : 'bg-[#FAFAF8]/95 border-stone-200'}`}>
           <div className="flex gap-3">
             <button
-              onClick={() => chapters.length > 0 && onChapterRead(chapters[chapters.length - 1])}
+              onClick={() => {
+                // Find the latest read chapter
+                let latestReadChapter = null;
+                let latestReadNum = 0;
+
+                readChapters.forEach(chapterId => {
+                  const match = chapterId.match(/chapter\/(\d+)/i);
+                  if (match) {
+                    const num = parseInt(match[1]);
+                    if (num > latestReadNum) {
+                      latestReadNum = num;
+                      latestReadChapter = chapters.find(ch => ch.id === chapterId);
+                    }
+                  }
+                });
+
+                // If we have a read chapter, continue from the next one
+                if (latestReadChapter) {
+                  const nextChapterNum = latestReadNum + 1;
+                  const nextChapter = chapters.find(ch => {
+                    const match = ch.id.match(/chapter\/(\d+)/i);
+                    return match && parseInt(match[1]) === nextChapterNum;
+                  });
+
+                  if (nextChapter) {
+                    onChapterRead(nextChapter);
+                  } else {
+                    // If no next chapter, go to the last chapter
+                    onChapterRead(chapters[chapters.length - 1]);
+                  }
+                } else {
+                  // Start from the first chapter if nothing read yet
+                  onChapterRead(chapters[0]);
+                }
+              }}
               disabled={chapters.length === 0}
               className={`flex-1 flex items-center justify-center space-x-2 py-3 font-semibold rounded-2xl border transition-all active:scale-[0.98] ${
                 darkMode
@@ -1150,7 +1233,22 @@ const Details = ({ manga: propManga, onBack, onChapterRead }) => {
               }`}
             >
               <Play size={18} fill="currentColor" />
-              <span>Start Reading</span>
+              <span>
+                {(() => {
+                  // Check if there's a read chapter to show "Continue Reading"
+                  let latestReadNum = 0;
+                  readChapters.forEach(chapterId => {
+                    const match = chapterId.match(/chapter\/(\d+)/i);
+                    if (match) {
+                      const num = parseInt(match[1]);
+                      if (num > latestReadNum) {
+                        latestReadNum = num;
+                      }
+                    }
+                  });
+                  return latestReadNum > 0 ? `Continue Reading Chapter ${latestReadNum + 1}` : 'Start Reading';
+                })()}
+              </span>
             </button>
             <button
               onClick={toggleLibrary}
