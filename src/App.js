@@ -89,7 +89,14 @@ function AppContent() {
 
   const handleReaderExit = () => {
     setActiveMangaId(null);
-    navigate(-1);
+    // Check if there's a manga param in the URL - go to details instead of back
+    const mangaParam = new URLSearchParams(location.search).get('manga');
+    if (mangaParam) {
+      setDetailsManga(null);
+      navigate(`/details/${encodeURIComponent(mangaParam)}`);
+    } else {
+      navigate(-1);
+    }
   };
 
   const handleHistoryMangaOpen = (manga) => {
@@ -297,7 +304,7 @@ function AppContent() {
               }}
             >
               <Details
-                onBack={() => navigate(-1)}
+                onBack={() => navigate('/')}
                 onChapterRead={handleChapterRead}
               />
             </Layout>

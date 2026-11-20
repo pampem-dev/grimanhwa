@@ -97,7 +97,10 @@ const MangaCard = memo(({ title, coverUrl, onClick, isLoading = false, rating })
 
         {/* TEXT CONTENT - Cleaner, removed the grey box */}
         <div className="px-1 transition-all duration-300">
-          <h3 className={`text-sm font-bold line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+          <h3
+            className={`text-sm font-bold line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}
+            title={title}
+          >
             {cleanTitle(title)}
           </h3>
         </div>

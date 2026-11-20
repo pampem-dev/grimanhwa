@@ -137,12 +137,19 @@ const MangaListItem = React.memo(({ manga, onClick, imageObserver, toggleLibrary
         <img
           ref={imgRef}
           data-src={manga.cover_url || manga.cover}
-          className="w-14 h-20 object-cover rounded shadow-md group-hover:scale-105 transition-transform bg-gray-800"
+          className="w-20 h-28 object-cover rounded shadow-md group-hover:scale-105 transition-transform bg-gray-800"
           alt={manga.title}
           onError={(e) => {
             e.target.src = "https://via.placeholder.com/80x100/374151/9CA3AF?text=No+Cover";
           }}
         />
+        {/* Rating badge */}
+        {manga.rating && (
+          <div className="absolute bottom-1 left-1 z-10 bg-black/80 backdrop-blur-md px-2 py-1 rounded flex items-center gap-1 border border-white/10">
+            <Star size={12} className="text-yellow-400" fill="currentColor" />
+            <span className="text-xs font-semibold leading-none text-white">{manga.rating}</span>
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         <p className="font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight text-sm">
@@ -156,7 +163,7 @@ const MangaListItem = React.memo(({ manga, onClick, imageObserver, toggleLibrary
         title={isInLibrary(manga.id) ? "Remove from Library" : "Add to Library"}
       >
         <Star
-          size={16}
+          size={24}
           fill={isInLibrary(manga.id) ? 'currentColor' : 'none'}
           className={`transition-colors ${
             isInLibrary(manga.id)
@@ -315,7 +322,7 @@ const Collections = ({ onMangaSelect, onMangaDetails }) => {
 
   // Sort options
   const sortOptions = [
-    { value: '---', label: 'No Sort' },
+    { value: '---', label: 'Default' },
     { value: 'title-asc', label: 'Sort A to Z' },
     { value: 'title-desc', label: 'Sort Z to A' }
   ];

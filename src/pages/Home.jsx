@@ -25,7 +25,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
   const [allMangaList, setAllMangaList] = useState([]); // Store all manga for pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10); // 10 items per page for 2-column layout
+  const [itemsPerPage] = useState(12); // 12 items per page for grid layout
   const [fetchError, setFetchError] = useState(null); // Error state
   const [isRefreshing, setIsRefreshing] = useState(false); // Refresh state
 
@@ -491,11 +491,11 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   };
 
   const renderTrending = () => (
-    <div>
-      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-        <TrendingUp className="text-blue-500" size={20} />
+    <div className="w-full">
+      <div className={`text-sm font-medium mb-8 flex items-center gap-3 uppercase tracking-widest ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        <TrendingUp className="text-blue-400" size={16} />
         Trending Today
-      </h2>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {loadingTrending
           ? Array.from({ length: 5 }).map((_, i) => <MangaCard key={i} isLoading />)
@@ -514,12 +514,12 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   );
 
   const renderLatest = () => (
-    <div id="latest-updates-section">
-      <h2 className={`text-xl font-bold mb-6 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-        <Clock className="text-blue-500" size={20} />
-        Latest Updates
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div id="latest-chapters-section" className="w-full">
+      <div className={`text-sm font-medium mb-8 flex items-center gap-3 uppercase tracking-widest ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        <Clock className="text-blue-400" size={16} />
+        Latest Chapters
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {loadingRecent
           ? Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="flex gap-4 p-3">
@@ -535,51 +535,102 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
               return (
                 <div
                   key={manga.id || index}
-                  className="flex gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors cursor-pointer group"
+                  className="w-full group cursor-pointer transition-all duration-500"
                   onClick={() => onMangaDetails(manga)}
                 >
-                  <div className="relative shrink-0">
-                    <img
-                      src={manga.cover_url || manga.cover}
-                      className="w-16 h-20 object-cover rounded shadow-lg group-hover:scale-105 transition-transform"
-                      alt={manga.title}
-                    />
-                    {/* Rating badge - same style as HeroCarousel */}
-                    {manga.rating && (
-                      <div className="absolute top-1 left-1 z-10 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-white/10">
-                        <Star size={8} className="text-yellow-400" fill="currentColor" />
-                        <span className="text-[9px] font-semibold leading-none text-white">{manga.rating}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0 flex flex-col justify-center">
-                    <p className={`font-bold line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {manga.title}
-                    </p>
-                    {mangaChapters && mangaChapters.length > 0 ? (
-                      <div className="mt-1 space-y-1">
-                        {mangaChapters.map((chapter, idx) => (
-                          <p
-                            key={idx}
-                            className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-400 cursor-pointer transition-colors`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Navigate to reader with chapter_id
-                              const chapterId = chapter.chapter_id || chapter.url;
-                              if (chapterId) {
-                                navigate(`/reader/${encodeURIComponent(chapterId)}`);
-                              }
-                            }}
-                          >
-                            Chapter {chapter.number}
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Loading...
-                      </p>
-                    )}
+                  <div className="relative flex flex-col gap-3">
+                    {/* IMAGE CONTAINER - same as MangaCard */}
+                    <div className="relative aspect-[3/4.5] w-full overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0a] shadow-2xl transition-all duration-500 group-hover:border-blue-500/50 group-hover:shadow-blue-500/10">
+                      {manga.cover_url || manga.cover ? (
+                        <img
+                          src={manga.cover_url || manga.cover}
+                          alt={manga.title}
+                          className="w-full h-full object-cover transition-transform duration-700 ease-out"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-[#0a0a0a]">
+                          <div className="text-center">
+                            <div className="text-gray-600 text-xs font-bold">NO COVER</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Rating Badge - Top Left */}
+                      {manga.rating && (
+                        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/80 backdrop-blur-md border border-white/10 px-2 py-1 rounded-lg">
+                          <Star size={10} className="text-yellow-400" fill="currentColor" />
+                          <span className="text-[10px] font-semibold leading-none text-white">
+                            {manga.rating}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Bottom Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-300" />
+                    </div>
+
+                    {/* TEXT CONTENT */}
+                    <div className="px-1 transition-all duration-300 min-h-[2.5rem]">
+                      <h3
+                        className={`text-sm font-bold line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}
+                        title={manga.title}
+                      >
+                        {manga.title}
+                      </h3>
+                    </div>
+
+                    {/* CHAPTERS FOOTER */}
+                    <div className="px-1 pb-1 mt-auto">
+                      {mangaChapters && mangaChapters.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {mangaChapters.map((chapter, idx) => (
+                            <button
+                              key={idx}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const chapterId = chapter.chapter_id || chapter.url;
+                                if (chapterId) {
+                                  // Mark chapter as read
+                                  try {
+                                    const readChaptersKey = `manga_read_chapters_${manga.id}`;
+                                    const readChaptersData = JSON.parse(localStorage.getItem(readChaptersKey) || '[]');
+                                    if (!readChaptersData.includes(chapterId)) {
+                                      readChaptersData.push(chapterId);
+                                      localStorage.setItem(readChaptersKey, JSON.stringify(readChaptersData));
+                                    }
+                                  } catch (err) {}
+                                  navigate(`/reader/${encodeURIComponent(chapterId)}?manga=${encodeURIComponent(manga.id)}`);
+                                }
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center justify-between group/chapter ${
+                                darkMode 
+                                  ? 'bg-white/5 text-gray-300 hover:bg-blue-600/20 hover:border-blue-500/50 hover:text-blue-300 border border-white/10' 
+                                  : 'bg-gray-100 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 border border-gray-200'
+                              }`}
+                            >
+                              <span>Chapter {chapter.number}</span>
+                              <span className="opacity-0 group-hover/chapter:opacity-100 transition-opacity">→</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {[0, 1].map((i) => (
+                            <div
+                              key={i}
+                              className={`w-full px-3 py-2 rounded-lg animate-pulse ${
+                                darkMode 
+                                  ? 'bg-white/5 border border-white/10' 
+                                  : 'bg-gray-100 border border-gray-200'
+                              }`}
+                            >
+                              <div className={`h-4 rounded ${darkMode ? 'bg-white/10' : 'bg-gray-300'} w-24`} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
