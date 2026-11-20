@@ -220,13 +220,13 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
       setLoadedIds((prev) => new Set(prev).add(id));
 
       // Pre-fetch next chapter even when loading from cache
-      if (!isPreload) {
+      setTimeout(() => {
         const nextChapterNum = chapterNum + 1;
         const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
-        if (!loadedIds.has(nextId)) {
+        if (!loadedIds.has(nextId) && !failedIds.has(nextId)) {
           fetchChapter(nextId, true, false);
         }
-      }
+      }, 1000);
 
       return;
     } else if (cached) {
@@ -316,21 +316,14 @@ const Reader = ({ chapterId: propChapterId, onNavigate, onExit }) => {
         // --- DYNAMIC PRE-FETCH LOGIC ---
         // Pre-fetch 1 chapter ahead for seamless reading
         // Triggers for every chapter to always keep 1 ahead ready
-        if (!isPreload) {
-          // Pre-fetch next 1 chapter with delay to not block current rendering
-          setTimeout(() => {
-            const nextChapterNum = chapterNum + 1;
-            const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
+        setTimeout(() => {
+          const nextChapterNum = chapterNum + 1;
+          const nextId = id.replace(/chapter\/\d+/i, `chapter/${nextChapterNum}`);
 
-            if (!loadedIds.has(nextId)) {
-              fetchChapter(nextId, true, false);
-            }
-          }, 1000); // 1 second delay to prioritize current chapter
-        } else {
-          // If we're preloading and got here, it means the chapter exists
-          // Clear hasReachedEnd if we successfully loaded a chapter during preload
-          setHasReachedEnd(false);
-        }
+          if (!loadedIds.has(nextId) && !failedIds.has(nextId)) {
+            fetchChapter(nextId, true, false);
+          }
+        }, 1000); // 1 second delay to prioritize current chapter
       } else {
         // Handle empty response - mark as end and failed
         setHasReachedEnd(true);
