@@ -40,6 +40,40 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     return data.manga || data.trending || data.results || [];
   };
 
+  // Format chapter title like "Chapter51The Reckoning8 hours ago" to "Chapter 51 - The Reckoning • 8 hours ago"
+  const formatChapterTitle = (title) => {
+    if (!title) return 'No chapters';
+
+    // Extract chapter number
+    const chapterMatch = title.match(/chapter\s*(\d+)/i);
+    const chapterNum = chapterMatch ? chapterMatch[1] : '';
+
+    // Extract time/date part (everything after the chapter name)
+    const timeMatch = title.match(/(\d+\s*(hours?|days?|weeks?|months?)\s+ago|just now|today|yesterday|\w+\s+\d{1,2},?\s+\d{4})/i);
+    const timePart = timeMatch ? timeMatch[1] : '';
+
+    // Extract chapter name (text between chapter number and time)
+    let chapterName = '';
+    if (chapterMatch && timeMatch) {
+      const afterChapter = title.substring(chapterMatch.index + chapterMatch[0].length);
+      const beforeTime = afterChapter.substring(0, afterChapter.indexOf(timeMatch[1]));
+      chapterName = beforeTime.trim();
+    } else if (chapterMatch) {
+      chapterName = title.substring(chapterMatch.index + chapterMatch[0].length).trim();
+    }
+
+    // Build formatted string
+    let result = `Chapter ${chapterNum}`;
+    if (chapterName) {
+      result += ` - ${chapterName}`;
+    }
+    if (timePart) {
+      result += ` • ${timePart}`;
+    }
+
+    return result || title;
+  };
+
 
   // Optimized chapter fetching
   const fetchLatestChapter = async (mangaId) => {
@@ -585,7 +619,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                       {manga.title}
                     </p>
                     <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {latestChapter ? latestChapter.title : 'No chapters'}
+                      {latestChapter ? formatChapterTitle(latestChapter.title) : 'No chapters'}
                     </p>
                   </div>
                 </div>
