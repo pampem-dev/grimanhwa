@@ -21,6 +21,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
+  const [isPaginating, setIsPaginating] = useState(false); // Track pagination loading
   const [latestUpdates, setLatestUpdates] = useState([]); // Store latest updates data
   const [latestUpdatesTotal, setLatestUpdatesTotal] = useState(0); // Total count for pagination
   const [allMangaList, setAllMangaList] = useState([]); // Store all manga for pagination
@@ -277,9 +278,13 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   }, [currentItems.length, loadingRecent]);
 
   // Fetch latest updates (manga sorted by most recent chapter)
-  const fetchLatestUpdates = useCallback(async () => {
+  const fetchLatestUpdates = useCallback(async (isPagination = false) => {
     try {
-      setLoadingRecent(true);
+      if (isPagination) {
+        setIsPaginating(true);
+      } else {
+        setLoadingRecent(true);
+      }
       const response = await fetch(API_ENDPOINTS.LATEST_UPDATES(currentPage, itemsPerPage));
       if (response.ok) {
         const data = await response.json();
@@ -289,7 +294,11 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     } catch (error) {
       console.error('Error fetching latest updates:', error);
     } finally {
-      setLoadingRecent(false);
+      if (isPagination) {
+        setIsPaginating(false);
+      } else {
+        setLoadingRecent(false);
+      }
     }
   }, [currentPage, itemsPerPage]);
 
@@ -479,8 +488,15 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   useEffect(() => {
     fetchAllManga();
-    fetchLatestUpdates();
+    fetchLatestUpdates(false); // Initial load shows skeleton
   }, [fetchAllManga, fetchLatestUpdates]);
+
+  // Fetch latest updates when page changes (without skeleton)
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchLatestUpdates(true); // Pagination - keep UI stable
+    }
+  }, [currentPage, fetchLatestUpdates]);
 
   useEffect(() => {
     if (featuredManga.length === 0 || !isAutoPlaying) return;
@@ -538,6 +554,10 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                 </div>
               </div>
             ))
+          : isPaginating
+          ? <div className="col-span-2 flex justify-center py-8">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            </div>
           : latestUpdates.map((manga, index) => {
               const latestChapter = manga.latest_chapter;
               return (
