@@ -21,6 +21,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
+  const [latestUpdates, setLatestUpdates] = useState([]); // Store latest updates data
   const [allMangaList, setAllMangaList] = useState([]); // Store all manga for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // 10 items per page for 2-column layout
@@ -274,6 +275,23 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItems.length, loadingRecent]);
 
+  // Fetch latest updates (manga sorted by most recent chapter)
+  const fetchLatestUpdates = useCallback(async () => {
+    try {
+      setLoadingRecent(true);
+      const response = await fetch(API_ENDPOINTS.LATEST_UPDATES(currentPage, itemsPerPage));
+      if (response.ok) {
+        const data = await response.json();
+        setLatestUpdates(data.manga || []);
+        setAllMangaList(data.manga || []); // Use for pagination
+      }
+    } catch (error) {
+      console.error('Error fetching latest updates:', error);
+    } finally {
+      setLoadingRecent(false);
+    }
+  }, [currentPage, itemsPerPage]);
+
   // Optimized fetchAllManga with error handling and caching
   const fetchAllManga = useCallback(async () => {
     try {
@@ -460,7 +478,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   useEffect(() => {
     fetchAllManga();
-  }, [fetchAllManga]);
+    fetchLatestUpdates();
+  }, [fetchAllManga, fetchLatestUpdates]);
 
   useEffect(() => {
     if (featuredManga.length === 0 || !isAutoPlaying) return;
@@ -518,8 +537,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                 </div>
               </div>
             ))
-          : currentItems.map((manga, index) => {
-              const latestChapter = latestChapters[manga.id];
+          : latestUpdates.map((manga, index) => {
+              const latestChapter = manga.latest_chapter;
               return (
                 <div
                   key={manga.id || index}
@@ -545,7 +564,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                       {manga.title}
                     </p>
                     <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {latestChapter ? `Chapter ${latestChapter.number}` : 'Loading...'}
+                      {latestChapter ? latestChapter.title : 'No chapters'}
                     </p>
                   </div>
                 </div>
