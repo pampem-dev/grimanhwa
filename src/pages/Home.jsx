@@ -22,6 +22,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
   const [latestUpdates, setLatestUpdates] = useState([]); // Store latest updates data
+  const [latestUpdatesTotal, setLatestUpdatesTotal] = useState(0); // Total count for pagination
   const [allMangaList, setAllMangaList] = useState([]); // Store all manga for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // 10 items per page for 2-column layout
@@ -141,8 +142,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   //   return match ? match[1] : '8.8';
   // };
 
-  // Pagination logic
-  const totalPages = Math.ceil(allMangaList.length / itemsPerPage);
+  // Pagination logic - use latestUpdatesTotal for Latest Updates section
+  const totalPages = Math.ceil(latestUpdatesTotal / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = allMangaList.slice(indexOfFirstItem, indexOfLastItem);
@@ -283,7 +284,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       if (response.ok) {
         const data = await response.json();
         setLatestUpdates(data.manga || []);
-        setAllMangaList(data.manga || []); // Use for pagination
+        setLatestUpdatesTotal(data.total || 0);
       }
     } catch (error) {
       console.error('Error fetching latest updates:', error);
