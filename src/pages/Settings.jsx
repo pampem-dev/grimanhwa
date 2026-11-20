@@ -3,6 +3,7 @@ import {Moon, Sun, Download, Trash2, Shield, ChevronRight, Info, ExternalLink, U
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../config/api';
+import Toast from '../components/Toast';
 
 const Settings = () => {
   const { darkMode, toggleDarkMode } = useTheme();
@@ -20,6 +21,7 @@ const Settings = () => {
   const [user, setUser] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // Check if user is logged in
   useEffect(() => {
@@ -123,6 +125,21 @@ const Settings = () => {
       const history = JSON.parse(localStorage.getItem('manga_reader_history_v1') || '[]');
       let library = JSON.parse(localStorage.getItem('mangaLibrary') || '[]');
 
+      // Collect all read chapters data
+      const readChaptersData = {};
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('manga_read_chapters_')) {
+          const mangaId = key.replace('manga_read_chapters_', '');
+          try {
+            const chapters = JSON.parse(localStorage.getItem(key) || '[]');
+            if (chapters.length > 0) {
+              readChaptersData[mangaId] = chapters;
+            }
+          } catch (err) {
+          }
+        }
+      });
+
       // Fetch missing manga details for library items
       for (let i = 0; i < library.length; i++) {
         const item = library[i];
@@ -158,17 +175,18 @@ const Settings = () => {
         },
         body: JSON.stringify({
           history,
-          library
+          library,
+          readChapters: readChaptersData
         })
       });
 
       if (response.ok) {
-        alert('Backup successful!');
+        setToast({ message: 'Backup successful!', type: 'success' });
       } else {
-        alert('Backup failed');
+        setToast({ message: 'Backup failed', type: 'error' });
       }
     } catch (error) {
-      alert('Backup error');
+      setToast({ message: 'Backup error', type: 'error' });
     } finally {
       setSyncing(false);
     }
@@ -198,21 +216,40 @@ const Settings = () => {
         },
       });
 
-      if (historyResponse.ok && libraryResponse.ok) {
+      // Fetch read chapters
+      const readChaptersResponse = await fetch(`${API_URL}api/user/read-chapters/get/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+
+      if (historyResponse.ok && libraryResponse.ok && readChaptersResponse.ok) {
         const historyData = await historyResponse.json();
         const libraryData = await libraryResponse.json();
+        const readChaptersData = await readChaptersResponse.json();
 
         // Restore to localStorage
         localStorage.setItem('manga_reader_history_v1', JSON.stringify(historyData.history || []));
         localStorage.setItem('mangaLibrary', JSON.stringify(libraryData.library || []));
 
-        alert('Sync successful!');
-        window.location.reload();
+        // Restore read chapters
+        if (readChaptersData.read_chapters) {
+          Object.keys(readChaptersData.read_chapters).forEach(mangaId => {
+            const chapters = readChaptersData.read_chapters[mangaId];
+            localStorage.setItem(`manga_read_chapters_${mangaId}`, JSON.stringify(chapters));
+          });
+        }
+
+        setToast({ message: 'Sync successful!', type: 'success' });
+        // Delay reload to show toast
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       } else {
-        alert('Sync failed');
+        setToast({ message: 'Sync failed', type: 'error' });
       }
     } catch (error) {
-      alert('Sync error');
+      setToast({ message: 'Sync error', type: 'error' });
     } finally {
       setRestoring(false);
     }
@@ -733,6 +770,15 @@ const Settings = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
