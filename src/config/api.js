@@ -65,7 +65,6 @@ export const API_ENDPOINTS = {
   // Database endpoints (fast, no scraping)
   MANGA: (id) => createApiUrl(`api/manga-db/details/?id=${encodeURIComponent(id)}`),
   LATEST_CHAPTER: (id) => createApiUrl(`api/manga-db/latest-chapter/?id=${encodeURIComponent(id)}`),
-  LATEST_UPDATES: (page = 1, perPage = 20) => createApiUrl(`api/manga-db/latest-updates/?page=${page}&per_page=${perPage}`),
   SEARCH: (query) => createApiUrl(`api/manga-db/search/?q=${encodeURIComponent(query)}`),
   BROWSE_ALL: createApiUrl('api/manga-db/'),
   MANGA_DB: createApiUrl('api/manga-db/'),

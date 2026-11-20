@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { Clock, TrendingUp, Crown, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { API_ENDPOINTS } from '../config/api';
@@ -10,6 +11,7 @@ import { getCachedData, setCachedData, clearAllMangaCache, resetActivityTime } f
 
 const Home = ({ onMangaSelect, onMangaDetails }) => {
   const { darkMode } = useTheme();
+  const navigate = useNavigate();
   const [featuredManga, setFeaturedManga] = useState([]);
   const [trendingManga, setTrendingManga] = useState([]);
   const [recentManga, setRecentManga] = useState([]);
@@ -21,9 +23,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [latestChapters, setLatestChapters] = useState({}); // Store latest chapter info
-  const [isPaginating, setIsPaginating] = useState(false); // Track pagination loading
-  const [latestUpdates, setLatestUpdates] = useState([]); // Store latest updates data
-  const [latestUpdatesTotal, setLatestUpdatesTotal] = useState(0); // Total count for pagination
   const [allMangaList, setAllMangaList] = useState([]); // Store all manga for pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10); // 10 items per page for 2-column layout
@@ -38,40 +37,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   const getMangaList = (data) => {
     if (Array.isArray(data)) return data; 
     return data.manga || data.trending || data.results || [];
-  };
-
-  // Format chapter title like "Chapter51The Reckoning8 hours ago" to "Chapter 51 - The Reckoning • 8 hours ago"
-  const formatChapterTitle = (title) => {
-    if (!title) return 'No chapters';
-
-    // Extract chapter number
-    const chapterMatch = title.match(/chapter\s*(\d+)/i);
-    const chapterNum = chapterMatch ? chapterMatch[1] : '';
-
-    // Extract time/date part (everything after the chapter name)
-    const timeMatch = title.match(/(\d+\s*(hours?|days?|weeks?|months?)\s+ago|just now|today|yesterday|\w+\s+\d{1,2},?\s+\d{4})/i);
-    const timePart = timeMatch ? timeMatch[1] : '';
-
-    // Extract chapter name (text between chapter number and time)
-    let chapterName = '';
-    if (chapterMatch && timeMatch) {
-      const afterChapter = title.substring(chapterMatch.index + chapterMatch[0].length);
-      const beforeTime = afterChapter.substring(0, afterChapter.indexOf(timeMatch[1]));
-      chapterName = beforeTime.trim();
-    } else if (chapterMatch) {
-      chapterName = title.substring(chapterMatch.index + chapterMatch[0].length).trim();
-    }
-
-    // Build formatted string
-    let result = `Chapter ${chapterNum}`;
-    if (chapterName) {
-      result += ` - ${chapterName}`;
-    }
-    if (timePart) {
-      result += ` • ${timePart}`;
-    }
-
-    return result || title;
   };
 
 
@@ -90,20 +55,34 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
       if (response.ok) {
         const data = await response.json();
 
-        // Handle direct chapter format (from database)
+        // Handle new format: { chapters: [...] }
+        if (data.chapters && Array.isArray(data.chapters)) {
+          return data.chapters.map(ch => ({
+            number: ch.number,
+            title: ch.title,
+            url: ch.url,
+            chapter_id: ch.chapter_id
+          }));
+        }
+
+        // Handle old format for backward compatibility
         if (data.number && data.title) {
-          return {
+          return [{
             number: data.number,
-            title: data.title
-          };
+            title: data.title,
+            url: data.url,
+            chapter_id: data.chapter_id
+          }];
         }
 
         // Handle latest_chapter format (for backward compatibility)
         if (data.latest_chapter) {
-          return {
+          return [{
             number: extractChapterNumber(data.latest_chapter),
-            title: data.latest_chapter.title || `Chapter ${extractChapterNumber(data.latest_chapter)}`
-          };
+            title: data.latest_chapter.title || `Chapter ${extractChapterNumber(data.latest_chapter)}`,
+            url: data.latest_chapter.url,
+            chapter_id: data.latest_chapter.chapter_id || data.latest_chapter.id
+          }];
         }
 
         // Fallback to old format (array) for backward compatibility
@@ -117,22 +96,18 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
         }
 
         if (chapters.length > 0) {
-          // Find the chapter with the highest number (the latest chapter)
-          let latestChapter = chapters[0];
-          let maxChapterNum = 0;
+          // Sort by chapter number descending and take top 2
+          const sortedChapters = chapters
+            .map(chapter => ({
+              number: extractChapterNumber(chapter),
+              title: chapter.title || `Chapter ${extractChapterNumber(chapter)}`,
+              url: chapter.url || chapter.id,
+              chapter_id: chapter.chapter_id || chapter.id
+            }))
+            .sort((a, b) => parseInt(b.number) - parseInt(a.number))
+            .slice(0, 2);
 
-          chapters.forEach(chapter => {
-            const chapterNum = parseInt(extractChapterNumber(chapter)) || 0;
-            if (chapterNum > maxChapterNum) {
-              maxChapterNum = chapterNum;
-              latestChapter = chapter;
-            }
-          });
-
-          return {
-            number: extractChapterNumber(latestChapter),
-            title: latestChapter.title || `Chapter ${extractChapterNumber(latestChapter)}`
-          };
+          return sortedChapters;
         }
       }
     } catch (err) {
@@ -177,8 +152,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
   //   return match ? match[1] : '8.8';
   // };
 
-  // Pagination logic - use latestUpdatesTotal for Latest Updates section
-  const totalPages = Math.ceil(latestUpdatesTotal / itemsPerPage);
+  // Pagination logic
+  const totalPages = Math.ceil(allMangaList.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = allMangaList.slice(indexOfFirstItem, indexOfLastItem);
@@ -310,31 +285,6 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentItems.length, loadingRecent]);
-
-  // Fetch latest updates (manga sorted by most recent chapter)
-  const fetchLatestUpdates = useCallback(async (isPagination = false) => {
-    try {
-      if (isPagination) {
-        setIsPaginating(true);
-      } else {
-        setLoadingRecent(true);
-      }
-      const response = await fetch(API_ENDPOINTS.LATEST_UPDATES(currentPage, itemsPerPage));
-      if (response.ok) {
-        const data = await response.json();
-        setLatestUpdates(data.manga || []);
-        setLatestUpdatesTotal(data.total || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching latest updates:', error);
-    } finally {
-      if (isPagination) {
-        setIsPaginating(false);
-      } else {
-        setLoadingRecent(false);
-      }
-    }
-  }, [currentPage, itemsPerPage]);
 
   // Optimized fetchAllManga with error handling and caching
   const fetchAllManga = useCallback(async () => {
@@ -522,15 +472,7 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
 
   useEffect(() => {
     fetchAllManga();
-    fetchLatestUpdates(false); // Initial load shows skeleton
-  }, [fetchAllManga, fetchLatestUpdates]);
-
-  // Fetch latest updates when page changes (without skeleton)
-  useEffect(() => {
-    if (currentPage > 1) {
-      fetchLatestUpdates(true); // Pagination - keep UI stable
-    }
-  }, [currentPage, fetchLatestUpdates]);
+  }, [fetchAllManga]);
 
   useEffect(() => {
     if (featuredManga.length === 0 || !isAutoPlaying) return;
@@ -588,12 +530,8 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                 </div>
               </div>
             ))
-          : isPaginating
-          ? <div className="col-span-2 flex justify-center py-8">
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          : latestUpdates.map((manga, index) => {
-              const latestChapter = manga.latest_chapter;
+          : currentItems.map((manga, index) => {
+              const mangaChapters = latestChapters[manga.id]; // Array of 2 chapters
               return (
                 <div
                   key={manga.id || index}
@@ -618,9 +556,30 @@ const Home = ({ onMangaSelect, onMangaDetails }) => {
                     <p className={`font-bold line-clamp-1 group-hover:text-blue-400 transition-colors uppercase tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {manga.title}
                     </p>
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {latestChapter ? formatChapterTitle(latestChapter.title) : 'No chapters'}
-                    </p>
+                    {mangaChapters && mangaChapters.length > 0 ? (
+                      <div className="mt-1 space-y-1">
+                        {mangaChapters.map((chapter, idx) => (
+                          <p
+                            key={idx}
+                            className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} hover:text-blue-400 cursor-pointer transition-colors`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Navigate to reader with chapter_id
+                              const chapterId = chapter.chapter_id || chapter.url;
+                              if (chapterId) {
+                                navigate(`/reader/${encodeURIComponent(chapterId)}`);
+                              }
+                            }}
+                          >
+                            Chapter {chapter.number}
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        Loading...
+                      </p>
+                    )}
                   </div>
                 </div>
               );
