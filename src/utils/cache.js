@@ -1,6 +1,6 @@
 // Cache utility with inactivity timeout
 const CACHE_PREFIX = 'manga_cache_';
-const INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes in milliseconds
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 // Track last activity time
 let lastActivityTime = Date.now();
@@ -102,9 +102,9 @@ if (typeof window !== 'undefined') {
       // Tab is visible again
       if (tabHiddenTime) {
         const hiddenDuration = Date.now() - tabHiddenTime;
-        // Clear cache if tab was hidden for more than 5 minutes
+        // Clear cache if tab was hidden for more than 15 minutes
         // This ensures fresh data after Railway cron jobs run
-        if (hiddenDuration > 5 * 60 * 1000) {
+        if (hiddenDuration > 15 * 60 * 1000) {
           clearAllMangaCache();
         }
         tabHiddenTime = null;
