@@ -93,7 +93,8 @@ function AppContent() {
     const mangaParam = new URLSearchParams(location.search).get('manga');
     if (mangaParam) {
       setDetailsManga(null);
-      navigate(`/details/${encodeURIComponent(mangaParam)}`);
+      // Replace history so back button doesn't go to reader
+      navigate(`/details/${encodeURIComponent(mangaParam)}`, { replace: true });
     } else {
       navigate(-1);
     }
