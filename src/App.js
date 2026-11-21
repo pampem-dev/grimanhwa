@@ -304,7 +304,7 @@ function AppContent() {
               }}
             >
               <Details
-                onBack={() => navigate('/')}
+                onBack={handleBack}
                 onChapterRead={handleChapterRead}
               />
             </Layout>
